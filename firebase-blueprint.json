@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "JIPAS School Management Database Blueprint",
+  "description": "Firestore database schema and security blueprint for JIPAS School Management System",
+  "entities": {
+    "users": {
+      "title": "Users",
+      "description": "System users including Admins, Teachers, Accountants, and Students",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "teacher", "accountant", "student"] },
+        "classAssigned": { "type": "string" },
+        "admissionNo": { "type": "string" },
+        "avatar": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "email", "role"]
+    },
+    "students": {
+      "title": "Students",
+      "description": "Enrolled student records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "fullName": { "type": "string" },
+        "admissionNo": { "type": "string" },
+        "className": { "type": "string" },
+        "gender": { "type": "string" },
+        "dateOfBirth": { "type": "string" },
+        "parentName": { "type": "string" },
+        "parentPhone": { "type": "string" },
+        "house": { "type": "string" },
+        "photo": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["fullName", "admissionNo", "className"]
+    },
+    "teachers": {
+      "title": "Teachers",
+      "description": "Faculty and staff profiles",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "designation": { "type": "string" },
+        "rank": { "type": "string" },
+        "classesTaught": { "type": "array", "items": { "type": "string" } },
+        "subjectsTaught": { "type": "array", "items": { "type": "string" } },
+        "photo": { "type": "string" }
+      },
+      "required": ["name", "email"]
+    },
+    "reports": {
+      "title": "TermReports",
+      "description": "Student terminal assessment reports",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "admissionNo": { "type": "string" },
+        "studentName": { "type": "string" },
+        "className": { "type": "string" },
+        "academicYear": { "type": "string" },
+        "term": { "type": "string" },
+        "scores": { "type": "array" },
+        "totalScore": { "type": "number" },
+        "averageScore": { "type": "number" },
+        "classPosition": { "type": "string" },
+        "conduct": { "type": "string" },
+        "attitude": { "type": "string" },
+        "interest": { "type": "string" },
+        "teacherComment": { "type": "string" },
+        "headTeacherComment": { "type": "string" },
+        "attendancePresent": { "type": "number" },
+        "attendanceTotal": { "type": "number" }
+      },
+      "required": ["studentId", "admissionNo", "academicYear", "term"]
+    },
+    "transactions": {
+      "title": "FeeTransactions",
+      "description": "Tuition and fee payment transactions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "admissionNo": { "type": "string" },
+        "className": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string" },
+        "paymentMethod": { "type": "string" },
+        "reference": { "type": "string" },
+        "date": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["studentName", "amount", "date", "status"]
+    },
+    "settings": {
+      "title": "SystemSettings",
+      "description": "Institution branding, crest logo, and system parameters",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "schoolName": { "type": "string" },
+        "schoolMotto": { "type": "string" },
+        "schoolLogo": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "address": { "type": "string" },
+        "activeAcademicYear": { "type": "string" },
+        "activeTerm": { "type": "string" }
+      }
+    },
+    "academicYears": {
+      "title": "AcademicYears",
+      "description": "Academic year calendar sessions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["name"]
+    },
+    "terms": {
+      "title": "Terms",
+      "description": "Term parameters and timelines",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "termNumber": { "type": "number" },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "daysOpen": { "type": "number" },
+        "isCurrent": { "type": "boolean" },
+        "resumptionDate": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "departments": {
+      "title": "Departments",
+      "description": "School departments",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "hod": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "classes": {
+      "title": "Classes",
+      "description": "Classrooms and streams",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "stream": { "type": "string" },
+        "roomNo": { "type": "string" },
+        "classTeacher": { "type": "string" },
+        "capacity": { "type": "number" }
+      },
+      "required": ["name"]
+    },
+    "houses": {
+      "title": "Houses",
+      "description": "School student houses",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "color": { "type": "string" },
+        "houseMaster": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "subjects": {
+      "title": "Subjects",
+      "description": "Curriculum subjects",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "department": { "type": "string" },
+        "isCore": { "type": "boolean" }
+      },
+      "required": ["name"]
+    }
+  }
+}
