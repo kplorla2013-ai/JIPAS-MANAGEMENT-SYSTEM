@@ -12,10 +12,12 @@ import {
 } from 'firebase/auth';
 import { 
   getFirestore,
+  initializeFirestore,
   collection,
   doc,
   getDoc,
   getDocs,
+  getDocFromServer,
   setDoc,
   addDoc,
   updateDoc,
@@ -25,7 +27,8 @@ import {
   query,
   where,
   orderBy,
-  limit
+  limit,
+  Firestore
 } from 'firebase/firestore';
 import firebaseConfigRaw from '../../firebase-applet-config.json';
 
@@ -56,8 +59,31 @@ export const auth: Auth = getAuth(app);
 // Initialize Firestore explicitly using firestoreDatabaseId from firebase-applet-config.json
 const firestoreDatabaseId = (firebaseConfigRaw as any).firestoreDatabaseId || 'ai-studio-jipas-b61eff80-5f1a-48b5-8f47-9b6fa98b798b';
 
-// Initialize Firestore via official SDK standard
-export const db = getFirestore(app, firestoreDatabaseId);
+// Initialize Firestore with auto-detect long polling to avoid timeout in proxy/iframe environments
+let dbInstance: Firestore;
+try {
+  dbInstance = initializeFirestore(app, {
+    experimentalAutoDetectLongPolling: true,
+    ignoreUndefinedProperties: true
+  }, firestoreDatabaseId);
+} catch (e) {
+  // If already initialized, fallback to getFirestore
+  dbInstance = getFirestore(app, firestoreDatabaseId);
+}
+
+export const db: Firestore = dbInstance;
+
+// Test connection gracefully
+async function validateConnection() {
+  try {
+    await getDocFromServer(doc(db, 'systemSettings', 'config'));
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.warn('[Firebase] Firestore operating in offline/cached mode.');
+    }
+  }
+}
+validateConnection();
 
 /**
  * Handle Firestore Error with metadata as required by security guidelines.

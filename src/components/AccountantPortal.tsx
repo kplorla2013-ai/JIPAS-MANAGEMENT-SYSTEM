@@ -7,6 +7,7 @@ import FeesSettingsManager from './common/FeesSettingsManager';
 import OverdueFeeAlertsManager from './admin/OverdueFeeAlertsManager';
 import AccountantSidebar from './accountant/AccountantSidebar';
 import ActionRequiredFollowUpModal from './accountant/ActionRequiredFollowUpModal';
+import AutomatedFeeAlertModal from './accountant/AutomatedFeeAlertModal';
 import GlobalSearchHeader from './common/GlobalSearchHeader';
 import { runDailyFeeAudit, isDailyAuditDueToday, getStoredAuditSummary, getFormattedTimestamp } from '../services/feeAuditService';
 import { 
@@ -110,10 +111,21 @@ export default function AccountantPortal({
   const [activeFollowUpBill, setActiveFollowUpBill] = useState<StudentBill | null>(null);
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
 
+  // Automated Templated Fee Alerts Modal states
+  const [isAutomatedAlertModalOpen, setIsAutomatedAlertModalOpen] = useState(false);
+  const [alertModalPreselectedStudentId, setAlertModalPreselectedStudentId] = useState<string | undefined>(undefined);
+  const [alertModalInitialFilter, setAlertModalInitialFilter] = useState<'all' | 'unpaid' | 'partially-paid'>('all');
+  const [selectedBillsForBatchAlert, setSelectedBillsForBatchAlert] = useState<string[]>([]);
+
   // Financial calculations
   const totalCollected = payments.reduce((acc, p) => acc + p.paid, 0);
   const totalOutstanding = bills.reduce((acc, b) => acc + b.balance, 0);
   const totalBilled = bills.reduce((acc, b) => acc + b.payable, 0);
+
+  // Unpaid & Partially Paid breakdown
+  const unpaidBills = bills.filter(b => b.balance > 0 && b.paid === 0);
+  const partiallyPaidBills = bills.filter(b => b.balance > 0 && b.paid > 0);
+  const overdueBillsList = bills.filter(b => b.balance > 0);
 
   // Action Required overdue fee accounts
   const actionRequiredBills = bills.filter(b => b.actionRequired || b.balance > 0);
@@ -628,18 +640,50 @@ export default function AccountantPortal({
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4">
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-lg font-bold text-slate-900">Student Fee Bills & Outstanding Balances</h3>
                   {actionRequiredBills.length > 0 && (
                     <span className="bg-rose-100 text-rose-800 text-[10px] font-black px-2 py-0.5 rounded-full border border-rose-200 animate-pulse">
                       {actionRequiredBills.length} Action Required
                     </span>
                   )}
+                  {unpaidBills.length > 0 && (
+                    <span className="bg-rose-50 text-rose-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-rose-200">
+                      {unpaidBills.length} Unpaid
+                    </span>
+                  )}
+                  {partiallyPaidBills.length > 0 && (
+                    <span className="bg-amber-50 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-200">
+                      {partiallyPaidBills.length} Partially Paid
+                    </span>
+                  )}
                 </div>
-                <p className="text-xs text-slate-500">Live reconciliation of total charges, daily overdue audits, and bursary follow-up.</p>
+                <p className="text-xs text-slate-500">Live reconciliation of total charges, daily overdue audits, and automated multi-channel bursary follow-up.</p>
               </div>
 
-              {/* Filter Tabs */}
+              {/* Automated Fee Alerts Quick Trigger */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAlertModalPreselectedStudentId(undefined);
+                    setAlertModalInitialFilter('all');
+                    setIsAutomatedAlertModalOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-cyan-600 via-teal-600 to-emerald-600 hover:from-cyan-700 hover:to-emerald-700 text-white rounded-xl text-xs font-black shadow-md shadow-cyan-900/10 cursor-pointer transition-all animate-pulse"
+                  title="Send automated templated SMS/WhatsApp/Notification alerts to parents of unpaid and partially paid students"
+                >
+                  <Sparkles className="w-4 h-4 text-cyan-200" />
+                  <span>Automated Fee Alerts</span>
+                  <span className="bg-white/20 text-white text-[10px] px-1.5 py-0.2 rounded-md font-mono">
+                    {overdueBillsList.length}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Filter Tabs & Quick Action Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
               <div className="flex flex-wrap items-center gap-1.5">
                 <button
                   type="button"
@@ -669,11 +713,22 @@ export default function AccountantPortal({
                   onClick={() => setBillsFilter('unpaid')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-colors ${
                     billsFilter === 'unpaid'
+                      ? 'bg-rose-600 text-white shadow-xs'
+                      : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+                  }`}
+                >
+                  Unpaid Only ({unpaidBills.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBillsFilter('partial')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-colors ${
+                    (billsFilter as string) === 'partial'
                       ? 'bg-amber-600 text-white shadow-xs'
                       : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
                   }`}
                 >
-                  Unpaid Arrears ({bills.filter(b => b.balance > 0).length})
+                  Partially Paid ({partiallyPaidBills.length})
                 </button>
                 <button
                   type="button"
@@ -687,7 +742,73 @@ export default function AccountantPortal({
                   Fully Paid ({bills.filter(b => b.balance === 0).length})
                 </button>
               </div>
+
+              {/* Fast Alert Batch Shortcuts */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAlertModalPreselectedStudentId(undefined);
+                    setAlertModalInitialFilter('unpaid');
+                    setIsAutomatedAlertModalOpen(true);
+                  }}
+                  className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <Send className="w-3 h-3 text-rose-500" /> Alert Unpaid ({unpaidBills.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAlertModalPreselectedStudentId(undefined);
+                    setAlertModalInitialFilter('partially-paid');
+                    setIsAutomatedAlertModalOpen(true);
+                  }}
+                  className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <Send className="w-3 h-3 text-amber-500" /> Alert Partial ({partiallyPaidBills.length})
+                </button>
+              </div>
             </div>
+
+            {/* Batch Selection Banner */}
+            {selectedBillsForBatchAlert.length > 0 && (
+              <div className="bg-cyan-950 text-white p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-md border border-cyan-800 animate-in fade-in">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping" />
+                  <span>
+                    <strong className="text-cyan-300 font-mono">{selectedBillsForBatchAlert.length}</strong> students selected for alert dispatch
+                  </span>
+                  <span className="text-cyan-400/60">•</span>
+                  <span className="text-cyan-200">
+                    Combined Arrears: <strong className="text-white font-mono">{
+                      bills.filter(b => selectedBillsForBatchAlert.includes(b.id)).reduce((acc, b) => acc + b.balance, 0).toFixed(2)
+                    } CFA</strong>
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedBillsForBatchAlert([])}
+                    className="px-3 py-1 bg-white/10 hover:bg-white/20 text-cyan-200 rounded-lg text-xs font-bold cursor-pointer"
+                  >
+                    Clear Selection
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAlertModalPreselectedStudentId(selectedBillsForBatchAlert[0]);
+                      setAlertModalInitialFilter('all');
+                      setIsAutomatedAlertModalOpen(true);
+                    }}
+                    className="px-4 py-1.5 bg-gradient-to-r from-cyan-500 to-teal-400 hover:from-cyan-600 hover:to-teal-500 text-slate-950 font-black rounded-xl text-xs flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    Send Templated Alert to Selected ({selectedBillsForBatchAlert.length})
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Search Input & Info */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -714,41 +835,85 @@ export default function AccountantPortal({
               <table className="w-full text-left border-collapse whitespace-nowrap text-xs">
                 <thead>
                   <tr className="bg-slate-900 text-white font-bold uppercase text-[10px]">
-                    <th className="p-3 w-12">#</th>
+                    <th className="p-3 w-8 text-center">
+                      <input
+                        type="checkbox"
+                        checked={displayedBills.length > 0 && displayedBills.filter(b => b.balance > 0).every(b => selectedBillsForBatchAlert.includes(b.id))}
+                        onChange={() => {
+                          const overdueIds = displayedBills.filter(b => b.balance > 0).map(b => b.id);
+                          const allSelected = overdueIds.every(id => selectedBillsForBatchAlert.includes(id));
+                          if (allSelected) {
+                            setSelectedBillsForBatchAlert(prev => prev.filter(id => !overdueIds.includes(id)));
+                          } else {
+                            setSelectedBillsForBatchAlert(prev => Array.from(new Set([...prev, ...overdueIds])));
+                          }
+                        }}
+                        className="w-3.5 h-3.5 text-cyan-600 rounded border-slate-400 cursor-pointer"
+                        title="Select all overdue for batch alerts"
+                      />
+                    </th>
+                    <th className="p-3 w-10">#</th>
                     <th className="p-3">Admission No</th>
                     <th className="p-3">Student Name</th>
                     <th className="p-3">Class</th>
                     <th className="p-3 text-right">Total Payable</th>
                     <th className="p-3 text-right">Paid</th>
                     <th className="p-3 text-right">Balance</th>
-                    <th className="p-3">Audit / Status</th>
-                    <th className="p-3 text-center">Actions</th>
+                    <th className="p-3">Fee Status</th>
+                    <th className="p-3 text-center">Actions & Alerts</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
                   {displayedBills.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="p-8 text-center text-slate-400">
+                      <td colSpan={10} className="p-8 text-center text-slate-400">
                         No student bills match the selected filter.
                       </td>
                     </tr>
                   ) : (
                     displayedBills.map((b, idx) => {
                       const isAction = b.actionRequired || b.balance > 0;
+                      const isUnpaid = b.balance > 0 && b.paid === 0;
+                      const isPartial = b.balance > 0 && b.paid > 0;
+                      const isSelected = selectedBillsForBatchAlert.includes(b.id);
+                      const studentObj = students.find(s => s.id === b.studentId || s.admissionNo === b.admissionNo);
+                      const phoneClean = (studentObj?.parentPhone || '0240000000').replace(/[^0-9]/g, '');
+                      const waPhone = phoneClean.startsWith('0') ? '233' + phoneClean.substring(1) : phoneClean;
+                      const waText = `Dear ${studentObj?.parentName || 'Parent'}, gentle fee reminder from JIPAS: ${b.studentName} (${b.className}, ${b.admissionNo}) has an outstanding balance of ${b.balance.toFixed(2)} CFA (Total bill: ${b.payable.toFixed(2)} CFA). Kindly arrange settlement at the bursary office.`;
+                      const waUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(waText)}`;
+
                       return (
                         <tr 
                           key={b.id} 
-                          className={isAction ? 'bg-rose-50/25 hover:bg-rose-50/60 border-l-4 border-l-rose-500' : 'hover:bg-slate-50'}
+                          className={isAction ? (isSelected ? 'bg-cyan-50/70 border-l-4 border-l-cyan-600' : 'bg-rose-50/25 hover:bg-rose-50/60 border-l-4 border-l-rose-500') : (isSelected ? 'bg-cyan-50/50' : 'hover:bg-slate-50')}
                         >
+                          <td className="p-3 text-center">
+                            {b.balance > 0 && (
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {
+                                  setSelectedBillsForBatchAlert(prev =>
+                                    prev.includes(b.id) ? prev.filter(id => id !== b.id) : [...prev, b.id]
+                                  );
+                                }}
+                                className="w-3.5 h-3.5 text-cyan-600 rounded border-slate-300 focus:ring-cyan-500 cursor-pointer"
+                              />
+                            )}
+                          </td>
                           <td className="p-3 text-slate-400 font-mono">{idx + 1}</td>
                           <td className="p-3 font-mono font-bold text-indigo-700">{b.admissionNo}</td>
                           <td className="p-3 font-bold text-slate-900">
                             <div>{b.studentName}</div>
-                            {b.lastContactDate && (
+                            {b.lastContactDate ? (
                               <span className="text-[10px] text-slate-400 font-normal">
                                 Contacted: {b.lastContactDate}
                               </span>
-                            )}
+                            ) : studentObj?.parentPhone ? (
+                              <span className="text-[10px] text-slate-400 font-mono font-normal">
+                                Parent: {studentObj.parentPhone}
+                              </span>
+                            ) : null}
                           </td>
                           <td className="p-3 text-slate-700">{b.className}</td>
                           <td className="p-3 text-right font-mono font-bold text-slate-800">{b.payable.toFixed(2)} CFA</td>
@@ -757,21 +922,22 @@ export default function AccountantPortal({
                             {b.balance.toFixed(2)} CFA
                           </td>
                           <td className="p-3">
-                            {isAction ? (
+                            {isUnpaid ? (
                               <div className="space-y-0.5">
                                 <span className="inline-flex items-center gap-1 bg-rose-100 border border-rose-300 text-rose-800 text-[10px] font-black px-2 py-0.5 rounded-full">
-                                  <AlertTriangle className="w-2.5 h-2.5 text-rose-600" /> Action Required
+                                  <AlertTriangle className="w-2.5 h-2.5 text-rose-600" /> Unpaid (0% Paid)
                                 </span>
-                                <div className="flex items-center gap-1 text-[10px]">
-                                  <span className={`font-bold ${
-                                    b.actionSeverity === 'Critical' || (!b.actionSeverity && b.balance >= 300)
-                                      ? 'text-rose-700' 
-                                      : 'text-amber-700'
-                                  }`}>
-                                    {b.actionSeverity || (b.balance >= 300 ? 'Critical' : 'Moderate')}
-                                  </span>
-                                  <span className="text-slate-300">•</span>
-                                  <span className="text-slate-600 font-medium">{b.actionStatus || 'Pending Follow-up'}</span>
+                                <div className="text-[10px] text-rose-700 font-bold">
+                                  Bal: {b.balance.toFixed(2)} CFA
+                                </div>
+                              </div>
+                            ) : isPartial ? (
+                              <div className="space-y-0.5">
+                                <span className="inline-flex items-center gap-1 bg-amber-100 border border-amber-300 text-amber-800 text-[10px] font-black px-2 py-0.5 rounded-full">
+                                  Partially Paid
+                                </span>
+                                <div className="text-[10px] text-amber-700 font-medium">
+                                  {Math.round((b.paid / (b.payable || 1)) * 100)}% Settled
                                 </div>
                               </div>
                             ) : (
@@ -788,21 +954,50 @@ export default function AccountantPortal({
                                   setActiveTab('new-payment');
                                 }}
                                 className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
+                                title="Collect payment and issue receipt"
                               >
                                 Collect
                               </button>
-                              {isAction && (
-                                <button
-                                  onClick={() => {
-                                    setActiveFollowUpBill(b);
-                                    setIsFollowUpModalOpen(true);
-                                  }}
-                                  className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-xs flex items-center gap-1 cursor-pointer transition-colors"
-                                  title="Fast follow-up with parent via WhatsApp/Call/Portal"
-                                >
-                                  <Phone className="w-3 h-3" />
-                                  Follow Up
-                                </button>
+
+                              {b.balance > 0 && (
+                                <>
+                                  {/* Send Automated Templated Alert Modal Trigger */}
+                                  <button
+                                    onClick={() => {
+                                      setAlertModalPreselectedStudentId(b.studentId);
+                                      setAlertModalInitialFilter(isUnpaid ? 'unpaid' : 'partially-paid');
+                                      setIsAutomatedAlertModalOpen(true);
+                                    }}
+                                    className="px-2 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold shadow-xs flex items-center gap-1 cursor-pointer transition-colors"
+                                    title="Send templated SMS/WhatsApp/Notification fee alert"
+                                  >
+                                    <Send className="w-3 h-3" />
+                                    Alert
+                                  </button>
+
+                                  {/* WhatsApp Instant Direct Link */}
+                                  <a
+                                    href={waUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-1.5 bg-emerald-100 hover:bg-emerald-600 text-emerald-700 hover:text-white rounded-lg text-xs font-bold shadow-xs transition-colors flex items-center justify-center"
+                                    title="Open WhatsApp chat with prefilled balance reminder"
+                                  >
+                                    <MessageSquare className="w-3.5 h-3.5" />
+                                  </a>
+
+                                  {/* Phone Follow Up */}
+                                  <button
+                                    onClick={() => {
+                                      setActiveFollowUpBill(b);
+                                      setIsFollowUpModalOpen(true);
+                                    }}
+                                    className="p-1.5 bg-rose-100 hover:bg-rose-600 text-rose-700 hover:text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
+                                    title="Log phone call / follow-up details"
+                                  >
+                                    <Phone className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
                               )}
                             </div>
                           </td>
@@ -1033,6 +1228,23 @@ export default function AccountantPortal({
               });
             }
           }}
+        />
+      )}
+
+      {/* Automated Templated Fee Alerts Modal (SMS / WhatsApp / In-App Notification) */}
+      {isAutomatedAlertModalOpen && (
+        <AutomatedFeeAlertModal
+          isOpen={isAutomatedAlertModalOpen}
+          onClose={() => {
+            setIsAutomatedAlertModalOpen(false);
+            setAlertModalPreselectedStudentId(undefined);
+          }}
+          students={students}
+          bills={bills}
+          onAddNotification={onAddNotification}
+          onUpdateBills={onUpdateBills}
+          preSelectedStudentId={alertModalPreselectedStudentId}
+          initialFilterStatus={alertModalInitialFilter}
         />
       )}
       </div>
