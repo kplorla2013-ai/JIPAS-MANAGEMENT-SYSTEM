@@ -131,7 +131,8 @@ export const INITIAL_DEPARTMENTS: DepartmentItem[] = [
     name: 'Senior High School',
     code: 'SHS',
     description: 'Senior High School Department (Courses: Science, Visual Arts, Home Economics, General Arts, Business, Agric)',
-    headOfDept: 'Dr. Kwame Boateng'
+    headOfDept: 'Dr. Kwame Boateng',
+    subDepartments: ['Science', 'Visual Arts', 'Home Economics', 'General Arts', 'Business', 'Agricultural Science']
   }
 ];
 

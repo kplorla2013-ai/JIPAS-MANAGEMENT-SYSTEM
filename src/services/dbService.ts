@@ -1105,6 +1105,19 @@ export async function saveStudent(student: Student) {
   }
 }
 
+export async function saveAllStudents(studentsList: Student[]) {
+  saveStoredStudents(studentsList);
+  try {
+    const batch = writeBatch(db);
+    studentsList.forEach(st => {
+      batch.set(doc(db, 'students', st.id), sanitizeForFirestore(st));
+    });
+    await batch.commit();
+  } catch (err) {
+    console.warn('[dbService] saveAllStudents batch commit warning:', err);
+  }
+}
+
 export async function approveStudentAdmission(studentId: string, assignedAdmissionNo?: string) {
   const current = getStoredStudents();
   const student = current.find(s => s.id === studentId);
@@ -1195,6 +1208,19 @@ export async function saveTeacher(teacher: Teacher) {
     const idx = current.findIndex(t => t.id === teacher.id);
     const updated = idx >= 0 ? current.map(t => t.id === teacher.id ? teacher : t) : [teacher, ...current];
     saveStoredTeachers(updated);
+  }
+}
+
+export async function saveAllTeachers(teachersList: Teacher[]) {
+  saveStoredTeachers(teachersList);
+  try {
+    const batch = writeBatch(db);
+    teachersList.forEach(t => {
+      batch.set(doc(db, 'teachers', t.id), sanitizeForFirestore(t));
+    });
+    await batch.commit();
+  } catch (err) {
+    console.warn('[dbService] saveAllTeachers batch commit warning:', err);
   }
 }
 

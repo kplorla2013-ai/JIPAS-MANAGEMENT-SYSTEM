@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, CheckCircle2, AlertCircle, RefreshCw, ShieldCheck, KeyRound, ArrowRight, X } from 'lucide-react';
+import { Mail, CheckCircle2, AlertCircle, RefreshCw, ShieldCheck, ArrowRight, X } from 'lucide-react';
 import { sendEmailVerificationCode, verifyEmailCode } from '../../services/verificationService';
 
 interface EmailVerificationModalProps {
@@ -22,7 +22,6 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
   const [code, setCode] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [dispatchedCode, setDispatchedCode] = useState<string | null>(null);
   const [errorNotice, setErrorNotice] = useState('');
   const [successNotice, setSuccessNotice] = useState('');
   const [countdown, setCountdown] = useState<number>(0);
@@ -54,9 +53,8 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
     setErrorNotice('');
     try {
       const res = await sendEmailVerificationCode(email, recipientName, purpose);
-      if (res.success && res.code) {
-        setDispatchedCode(res.code);
-        setSuccessNotice(`A 6-digit authentication code was sent to ${email}.`);
+      if (res.success) {
+        setSuccessNotice(`A true 6-digit authentication code has been sent to ${email}. Please check your email inbox.`);
         setCountdown(45); // 45 seconds before resend allowed
       } else {
         setErrorNotice(res.error || 'Failed to dispatch verification code.');
@@ -138,31 +136,6 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
             6-Digit OTP
           </span>
         </div>
-
-        {/* Dev / Preview Dispatched Code Helper Notice */}
-        {dispatchedCode && (
-          <div className="bg-indigo-950/90 border border-indigo-500/70 p-3.5 rounded-xl text-xs space-y-1.5 animate-fade-in shadow-inner">
-            <div className="flex items-center justify-between">
-              <span className="font-extrabold text-indigo-300 flex items-center gap-1.5">
-                <KeyRound className="w-3.5 h-3.5 text-indigo-400" />
-                Dispatched Code
-              </span>
-              <button
-                type="button"
-                onClick={() => setCode(dispatchedCode)}
-                className="text-[11px] font-black text-amber-300 hover:text-amber-200 underline cursor-pointer"
-              >
-                Click to Auto-Fill
-              </button>
-            </div>
-            <div className="flex items-center justify-between bg-slate-950/90 px-3 py-2 rounded-lg border border-indigo-800 font-mono">
-              <span className="text-lg font-black tracking-widest text-emerald-400">
-                {dispatchedCode}
-              </span>
-              <span className="text-[10px] text-slate-400">Valid for 15 mins</span>
-            </div>
-          </div>
-        )}
 
         {/* Alerts */}
         {errorNotice && (

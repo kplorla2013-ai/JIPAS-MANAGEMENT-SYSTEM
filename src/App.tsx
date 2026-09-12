@@ -980,6 +980,11 @@ export default function App() {
                 teacher={activeTeacher}
                 students={students}
                 teachers={teachers}
+                departments={departments}
+                courses={courses}
+                classes={classes}
+                subjects={subjects}
+                houses={houses}
                 reports={reports}
                 bills={bills}
                 payments={payments}

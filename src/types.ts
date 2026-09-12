@@ -383,6 +383,7 @@ export interface DepartmentItem {
   code?: string;
   description: string;
   headOfDept?: string;
+  subDepartments?: string[]; // Sub-departments under this department (e.g. SHS Courses / Programmes: Science, Visual Arts, Home Economics, etc.)
 }
 
 export interface CourseItem {

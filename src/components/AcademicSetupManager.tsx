@@ -5,9 +5,13 @@ import {
 import { 
   Plus, Edit2, Trash2, CheckCircle, Search, Filter, Calendar, BookOpen, 
   Building2, School, Shield, Check, X, Sliders, AlertTriangle, Users, 
-  ChevronRight, ArrowRight, Sparkles, Award, GraduationCap, Layers
+  ChevronRight, ArrowRight, Sparkles, Award, GraduationCap, Layers,
+  ChevronDown, ChevronUp
 } from 'lucide-react';
-import { deleteAcademicYear, deleteTerm, deleteDepartment, deleteClass, deleteHouse, deleteSubject, deleteCourse } from '../services/dbService';
+import { 
+  deleteAcademicYear, deleteTerm, deleteDepartment, deleteClass, deleteHouse, deleteSubject, deleteCourse,
+  saveAllStudents, saveAllTeachers, saveAllClasses, saveAllSubjects, saveAllCourses
+} from '../services/dbService';
 import { INITIAL_SHS_COURSES } from '../data/setupData';
 
 interface AcademicSetupManagerProps {
@@ -291,6 +295,16 @@ export default function AcademicSetupManager({
   const [deptFormCode, setDeptFormCode] = useState('');
   const [deptFormHOD, setDeptFormHOD] = useState('');
   const [deptFormDesc, setDeptFormDesc] = useState('');
+  const [deptFormSubDepts, setDeptFormSubDepts] = useState<string[]>([]);
+  const [newSubDeptInput, setNewSubDeptInput] = useState('');
+  const [expandedDeptSubDepts, setExpandedDeptSubDepts] = useState<Record<string, boolean>>({
+    'dept-shs': true,
+    'shs': true
+  });
+
+  const toggleExpandSubDept = (deptId: string) => {
+    setExpandedDeptSubDepts(prev => ({ ...prev, [deptId]: !prev[deptId] }));
+  };
 
   const openAddDeptModal = () => {
     setEditingDept(null);
@@ -298,6 +312,8 @@ export default function AcademicSetupManager({
     setDeptFormCode('');
     setDeptFormHOD('');
     setDeptFormDesc('');
+    setDeptFormSubDepts([]);
+    setNewSubDeptInput('');
     setShowDeptModal(true);
   };
 
@@ -307,36 +323,90 @@ export default function AcademicSetupManager({
     setDeptFormCode(dept.code || '');
     setDeptFormHOD(dept.headOfDept || '');
     setDeptFormDesc(dept.description);
+    const isShs = dept.name.toLowerCase().includes('senior') || dept.code === 'SHS';
+    const initialSubs = dept.subDepartments && dept.subDepartments.length > 0 
+      ? dept.subDepartments 
+      : (isShs ? ['Science', 'Visual Arts', 'Home Economics', 'General Arts', 'Business', 'Agricultural Science'] : []);
+    setDeptFormSubDepts(initialSubs);
+    setNewSubDeptInput('');
     setShowDeptModal(true);
   };
 
-  const handleSaveDept = (e: React.FormEvent) => {
+  const handleSaveDept = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!deptFormName) {
+    if (!deptFormName.trim()) {
       showToast('Department name is required.');
       return;
     }
 
+    const trimmedName = deptFormName.trim();
+    const isShs = trimmedName.toLowerCase().includes('senior') || deptFormCode === 'SHS';
+    const subDeptsToSave = deptFormSubDepts.length > 0 
+      ? deptFormSubDepts 
+      : (isShs ? ['Science', 'Visual Arts', 'Home Economics', 'General Arts', 'Business', 'Agricultural Science'] : undefined);
+
     if (editingDept) {
+      const oldDeptName = editingDept.name;
       const updated = departments.map(d => d.id === editingDept.id ? {
         ...d,
-        name: deptFormName,
-        code: deptFormCode,
-        headOfDept: deptFormHOD,
-        description: deptFormDesc
+        name: trimmedName,
+        code: deptFormCode.trim() || trimmedName.substring(0, 3).toUpperCase(),
+        headOfDept: deptFormHOD.trim(),
+        description: deptFormDesc.trim(),
+        subDepartments: subDeptsToSave
       } : d);
       onUpdateDepartments(updated);
-      showToast(`Department "${deptFormName}" updated.`);
+
+      // GLOBAL CASCADE: Reflect changes throughout the entire system
+      if (oldDeptName.toLowerCase() !== trimmedName.toLowerCase()) {
+        // 1. Cascade update classes
+        const updatedClasses = classes.map(c => 
+          c.department.toLowerCase() === oldDeptName.toLowerCase() ? { ...c, department: trimmedName } : c
+        );
+        onUpdateClasses(updatedClasses);
+        try { await saveAllClasses(updatedClasses); } catch(err) { console.warn(err); }
+
+        // 2. Cascade update courses
+        if (courses && onUpdateCourses) {
+          const updatedCourses = courses.map(c => 
+            c.department.toLowerCase() === oldDeptName.toLowerCase() ? { ...c, department: trimmedName } : c
+          );
+          onUpdateCourses(updatedCourses);
+          try { await saveAllCourses(updatedCourses); } catch(err) { console.warn(err); }
+        }
+
+        // 3. Cascade update subjects
+        const updatedSubjects = subjects.map(s => 
+          s.department.toLowerCase() === oldDeptName.toLowerCase() ? { ...s, department: trimmedName } : s
+        );
+        onUpdateSubjects(updatedSubjects);
+        try { await saveAllSubjects(updatedSubjects); } catch(err) { console.warn(err); }
+
+        // 4. Cascade update students
+        const updatedStudents = students.map(st => 
+          st.department.toLowerCase() === oldDeptName.toLowerCase() ? { ...st, department: trimmedName } : st
+        );
+        try { await saveAllStudents(updatedStudents); } catch(err) { console.warn(err); }
+
+        // 5. Cascade update teachers
+        const updatedTeachers = teachers.map(t => 
+          t.department && t.department.toLowerCase() === oldDeptName.toLowerCase() ? { ...t, department: trimmedName } : t
+        );
+        try { await saveAllTeachers(updatedTeachers); } catch(err) { console.warn(err); }
+      }
+
+      showToast(`Department "${trimmedName}" updated and propagated throughout the system.`);
     } else {
       const newDept: DepartmentItem = {
         id: `dept-${Date.now()}`,
-        name: deptFormName,
-        code: deptFormCode || deptFormName.substring(0, 3).toUpperCase(),
-        headOfDept: deptFormHOD,
-        description: deptFormDesc || '--'
+        name: trimmedName,
+        code: deptFormCode.trim() || trimmedName.substring(0, 3).toUpperCase(),
+        headOfDept: deptFormHOD.trim(),
+        description: deptFormDesc.trim() || '--',
+        subDepartments: subDeptsToSave
       };
       onUpdateDepartments([...departments, newDept]);
-      showToast(`Department "${deptFormName}" created.`);
+      showToast(`Department "${trimmedName}" created and ready across all modules.`);
     }
     setShowDeptModal(false);
   };
@@ -511,6 +581,8 @@ export default function AcademicSetupManager({
   const [editingClass, setEditingClass] = useState<ClassItem | null>(null);
   const [classFormName, setClassFormName] = useState('');
   const [classFormDept, setClassFormDept] = useState(departments[0]?.name || 'Primary School');
+  const [classFormCourse, setClassFormCourse] = useState('');
+  const [classFormLevel, setClassFormLevel] = useState<'1' | '2' | '3'>('1');
   const [classFormTeacher, setClassFormTeacher] = useState('');
   const [classFormRoom, setClassFormRoom] = useState('');
   const [classFormCapacity, setClassFormCapacity] = useState(35);
@@ -520,6 +592,8 @@ export default function AcademicSetupManager({
     setEditingClass(null);
     setClassFormName('');
     setClassFormDept(departments[0]?.name || 'Primary School');
+    setClassFormCourse(courses && courses.length > 0 ? courses[0].name : 'Science');
+    setClassFormLevel('1');
     setClassFormTeacher('');
     setClassFormRoom('');
     setClassFormCapacity(35);
@@ -531,6 +605,8 @@ export default function AcademicSetupManager({
     setEditingClass(cls);
     setClassFormName(cls.name);
     setClassFormDept(cls.department);
+    setClassFormCourse(cls.course || (courses && courses.length > 0 ? courses[0].name : ''));
+    setClassFormLevel((cls.level as any) || '1');
     setClassFormTeacher(cls.classTeacher);
     setClassFormRoom(cls.roomNumber);
     setClassFormCapacity(cls.capacity);
@@ -538,37 +614,70 @@ export default function AcademicSetupManager({
     setShowClassModal(true);
   };
 
-  const handleSaveClass = (e: React.FormEvent) => {
+  const handleSaveClass = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!classFormName) {
+    if (!classFormName.trim()) {
       showToast('Class name is required.');
       return;
     }
 
+    const trimmedClassName = classFormName.trim();
+    const isShs = classFormDept.toLowerCase().includes('senior') || classFormDept.toLowerCase().includes('shs');
+
     if (editingClass) {
+      const oldClassName = editingClass.name;
       const updated = classes.map(c => c.id === editingClass.id ? {
         ...c,
-        name: classFormName,
+        name: trimmedClassName,
         department: classFormDept,
+        course: isShs ? (classFormCourse || c.course) : c.course,
+        level: isShs ? classFormLevel : c.level,
         classTeacher: classFormTeacher || 'Unassigned',
         roomNumber: classFormRoom || '--',
         capacity: Number(classFormCapacity),
         status: classFormStatus
       } : c);
       onUpdateClasses(updated);
-      showToast(`Class "${classFormName}" updated.`);
+      try { await saveAllClasses(updated); } catch (err) { console.warn(err); }
+
+      // GLOBAL CASCADE: Propagate class rename throughout the system
+      if (oldClassName !== trimmedClassName) {
+        // 1. Update students enrolled in this class
+        const updatedStudents = students.map(st => 
+          st.className === oldClassName ? { ...st, className: trimmedClassName } : st
+        );
+        try { await saveAllStudents(updatedStudents); } catch (err) { console.warn(err); }
+
+        // 2. Update teachers teaching this class
+        const updatedTeachers = teachers.map(t => {
+          if (t.classesTaught && t.classesTaught.includes(oldClassName)) {
+            return {
+              ...t,
+              classesTaught: t.classesTaught.map(c => c === oldClassName ? trimmedClassName : c)
+            };
+          }
+          return t;
+        });
+        try { await saveAllTeachers(updatedTeachers); } catch (err) { console.warn(err); }
+      }
+
+      showToast(`Class "${trimmedClassName}" updated and propagated.`);
     } else {
       const newClassItem: ClassItem = {
         id: `cls-${Date.now()}`,
-        name: classFormName,
+        name: trimmedClassName,
         department: classFormDept,
+        course: isShs ? classFormCourse : undefined,
+        level: isShs ? classFormLevel : undefined,
         classTeacher: classFormTeacher || 'Unassigned',
         roomNumber: classFormRoom || '--',
         capacity: Number(classFormCapacity),
         status: classFormStatus
       };
-      onUpdateClasses([...classes, newClassItem]);
-      showToast(`Class "${classFormName}" added.`);
+      const updated = [...classes, newClassItem];
+      onUpdateClasses(updated);
+      try { await saveAllClasses(updated); } catch (err) { console.warn(err); }
+      showToast(`Class "${trimmedClassName}" added across all departments.`);
     }
     setShowClassModal(false);
   };
@@ -694,33 +803,67 @@ export default function AcademicSetupManager({
     setShowSubjectModal(true);
   };
 
-  const handleSaveSubject = (e: React.FormEvent) => {
+  const handleSaveSubject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!subjectFormName) {
+    if (!subjectFormName.trim()) {
       showToast('Subject name is required.');
       return;
     }
 
+    const trimmedSubName = subjectFormName.trim();
+    const generatedCode = subjectFormCode.trim() || `${trimmedSubName.substring(0, 3).toUpperCase()}001`;
+
     if (editingSubject) {
+      const oldSubjectName = editingSubject.name;
       const updated = subjects.map(s => s.id === editingSubject.id ? {
         ...s,
-        name: subjectFormName,
-        code: subjectFormCode || `${subjectFormName.substring(0, 3).toUpperCase()}001`,
+        name: trimmedSubName,
+        code: generatedCode,
         department: subjectFormDept,
         category: subjectFormCat
       } : s);
       onUpdateSubjects(updated);
-      showToast(`Subject "${subjectFormName}" updated.`);
+      try { await saveAllSubjects(updated); } catch (err) { console.warn(err); }
+
+      // GLOBAL CASCADE: Propagate subject rename throughout the system
+      if (oldSubjectName !== trimmedSubName) {
+        // 1. Teachers teaching this subject
+        const updatedTeachers = teachers.map(t => {
+          if (t.subjectsTaught && t.subjectsTaught.includes(oldSubjectName)) {
+            return {
+              ...t,
+              subjectsTaught: t.subjectsTaught.map(s => s === oldSubjectName ? trimmedSubName : s)
+            };
+          }
+          return t;
+        });
+        try { await saveAllTeachers(updatedTeachers); } catch (err) { console.warn(err); }
+
+        // 2. Courses referencing this subject
+        if (courses && onUpdateCourses) {
+          const updatedCourses = courses.map(crs => ({
+            ...crs,
+            coreSubjects: crs.coreSubjects?.map(s => s === oldSubjectName ? trimmedSubName : s),
+            electiveSubjects: crs.electiveSubjects?.map(s => s === oldSubjectName ? trimmedSubName : s)
+          }));
+          onUpdateCourses(updatedCourses);
+          try { await saveAllCourses(updatedCourses); } catch (err) { console.warn(err); }
+        }
+      }
+
+      showToast(`Subject "${trimmedSubName}" updated and propagated.`);
     } else {
       const newSub: SubjectItem = {
         id: `sub-${Date.now()}`,
-        name: subjectFormName,
-        code: subjectFormCode || `${subjectFormName.substring(0, 3).toUpperCase()}001`,
+        name: trimmedSubName,
+        code: generatedCode,
         department: subjectFormDept,
         category: subjectFormCat
       };
-      onUpdateSubjects([...subjects, newSub]);
-      showToast(`Subject "${subjectFormName}" added.`);
+      const updated = [...subjects, newSub];
+      onUpdateSubjects(updated);
+      try { await saveAllSubjects(updated); } catch (err) { console.warn(err); }
+      showToast(`Subject "${trimmedSubName}" added across all departments.`);
     }
     setShowSubjectModal(false);
   };
@@ -1400,37 +1543,173 @@ export default function AcademicSetupManager({
               <tbody className="divide-y divide-slate-100 font-medium">
                 {filteredDepts.map((dept, idx) => {
                   const deptClassesCount = classes.filter(c => c.department.toLowerCase() === dept.name.toLowerCase()).length;
+                  const isShsDept = dept.name.toLowerCase().includes('senior') || dept.code === 'SHS' || (dept.subDepartments && dept.subDepartments.length > 0);
+                  const isExpanded = expandedDeptSubDepts[dept.id] ?? (isShsDept ? true : false);
+                  const subDeptsList = dept.subDepartments && dept.subDepartments.length > 0 
+                    ? dept.subDepartments 
+                    : (isShsDept ? ['Science', 'Visual Arts', 'Home Economics', 'General Arts', 'Business', 'Agricultural Science'] : []);
+
                   return (
-                    <tr key={dept.id} className="hover:bg-slate-50">
-                      <td className="p-3 text-center text-slate-500 font-mono">{idx + 1}</td>
-                      <td className="p-3 font-bold text-slate-900">{dept.name}</td>
-                      <td className="p-3 font-mono font-bold text-cyan-700">{dept.code || '--'}</td>
-                      <td className="p-3 text-slate-700">{dept.headOfDept || 'Not Assigned'}</td>
-                      <td className="p-3 text-slate-500 max-w-xs truncate">{dept.description}</td>
-                      <td className="p-3 text-center">
-                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold">
-                          {deptClassesCount} Classes
-                        </span>
-                      </td>
-                      <td className="p-3 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            title="Edit"
-                            onClick={() => openEditDeptModal(dept)}
-                            className="w-7 h-7 bg-amber-500 hover:bg-amber-600 text-white rounded flex items-center justify-center cursor-pointer shadow-xs"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            title="Delete"
-                            onClick={() => handleDeleteDept(dept.id, dept.name)}
-                            className="w-7 h-7 bg-rose-600 hover:bg-rose-700 text-white rounded flex items-center justify-center cursor-pointer shadow-xs"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                    <React.Fragment key={dept.id}>
+                      <tr className={`hover:bg-slate-50 transition-colors ${isExpanded && isShsDept ? 'bg-indigo-50/20' : ''}`}>
+                        <td className="p-3 text-center text-slate-500 font-mono">{idx + 1}</td>
+                        <td className="p-3">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-slate-900 text-xs">{dept.name}</span>
+                            {isShsDept && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-100 text-indigo-800 border border-indigo-200 flex items-center gap-1 shadow-2xs">
+                                <Layers className="w-3 h-3 text-indigo-600" />
+                                Sub-Department: SHS Courses / Programmes ({subDeptsList.length})
+                              </span>
+                            )}
+                          </div>
+                          {isShsDept && (
+                            <div className="flex items-center gap-2 mt-1">
+                              <button
+                                type="button"
+                                onClick={() => toggleExpandSubDept(dept.id)}
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 hover:text-indigo-900 hover:underline cursor-pointer"
+                              >
+                                {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                {isExpanded ? 'Hide Sub-Departments' : `View SHS Courses / Programmes (${subDeptsList.length})`}
+                              </button>
+                              <span className="text-[10px] text-slate-400">•</span>
+                              <span className="text-[11px] text-slate-500 truncate max-w-sm">
+                                {subDeptsList.join(', ')}
+                              </span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-3 font-mono font-bold text-cyan-700">{dept.code || '--'}</td>
+                        <td className="p-3 text-slate-700">{dept.headOfDept || 'Not Assigned'}</td>
+                        <td className="p-3 text-slate-500 max-w-xs truncate">{dept.description}</td>
+                        <td className="p-3 text-center">
+                          <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold">
+                            {deptClassesCount} Classes
+                          </span>
+                        </td>
+                        <td className="p-3 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              title="Edit"
+                              onClick={() => openEditDeptModal(dept)}
+                              className="w-7 h-7 bg-amber-500 hover:bg-amber-600 text-white rounded flex items-center justify-center cursor-pointer shadow-xs"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              title="Delete"
+                              onClick={() => handleDeleteDept(dept.id, dept.name)}
+                              className="w-7 h-7 bg-rose-600 hover:bg-rose-700 text-white rounded flex items-center justify-center cursor-pointer shadow-xs"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* SHS SUB-DEPARTMENTS PANEL (CONTAINING SHS COURSES / PROGRAMMES) */}
+                      {isShsDept && isExpanded && (
+                        <tr className="bg-slate-50/70 border-b border-indigo-100">
+                          <td colSpan={7} className="p-4 pl-10 pr-6">
+                            <div className="bg-white rounded-2xl p-4 border border-indigo-200 shadow-xs space-y-4">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                                    <GraduationCap className="w-5 h-5" />
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <h4 className="font-extrabold text-slate-900 text-sm tracking-tight">
+                                        Sub-Department: SHS Courses / Programmes
+                                      </h4>
+                                      <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded text-[10px] font-bold">
+                                        {courses.length} Active Tracks
+                                      </span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-500">
+                                      Structured curriculum tracks and specialized course streams enrolled under Senior High School
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={openAddCourseModal}
+                                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-xs"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    + Add SHS Course / Programme
+                                  </button>
+                                  <button
+                                    onClick={openAddClassModal}
+                                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors"
+                                  >
+                                    <School className="w-3.5 h-3.5" />
+                                    + Add Class Stream
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Courses / Programmes Grid */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {courses.map((course) => {
+                                  const courseClasses = classes.filter(c => c.course === course.name || c.name.startsWith(course.name));
+                                  const enrolledCount = students.filter(s => s.course === course.name || (s.department === dept.name && courseClasses.some(c => c.name === s.className))).length;
+                                  return (
+                                    <div
+                                      key={course.id}
+                                      className="bg-slate-50/80 hover:bg-white rounded-xl p-3.5 border border-slate-200 hover:border-indigo-300 hover:shadow-xs transition-all space-y-2.5 text-xs"
+                                    >
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div>
+                                          <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                                            <span>{course.name}</span>
+                                            <span className="font-mono text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-1.5 py-0.2 rounded font-bold">
+                                              {course.code}
+                                            </span>
+                                          </div>
+                                          <span className="text-[11px] text-slate-500 block">
+                                            Lead: {course.headOfProgramme || 'HOD Assigned'}
+                                          </span>
+                                        </div>
+                                        <button
+                                          onClick={() => openEditCourseModal(course)}
+                                          title="Configure Programme"
+                                          className="w-7 h-7 bg-white hover:bg-indigo-600 hover:text-white text-slate-600 border border-slate-200 hover:border-indigo-600 rounded-lg flex items-center justify-center transition-colors shadow-2xs"
+                                        >
+                                          <Edit2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+
+                                      <div className="bg-white rounded-lg p-2 border border-slate-100 flex items-center justify-between text-[11px]">
+                                        <div>
+                                          <span className="text-slate-500 font-semibold">Streams: </span>
+                                          <span className="font-bold text-slate-800">
+                                            {courseClasses.length > 0 
+                                              ? courseClasses.map(c => c.name.replace(course.name, '').trim() || c.name).join(', ')
+                                              : 'Level 1, 2, 3'}
+                                          </span>
+                                        </div>
+                                        <span className="bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full text-[10px] border border-emerald-100">
+                                          {enrolledCount} Enrolled
+                                        </span>
+                                      </div>
+
+                                      <div className="text-[10px] text-slate-500">
+                                        <span className="font-bold text-slate-600">Electives: </span>
+                                        {course.electiveSubjects && course.electiveSubjects.length > 0
+                                          ? course.electiveSubjects.slice(0, 3).join(', ') + (course.electiveSubjects.length > 3 ? ` +${course.electiveSubjects.length - 3}` : '')
+                                          : 'Standard Electives'}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
@@ -2254,6 +2533,76 @@ export default function AcademicSetupManager({
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl"
                 />
               </div>
+
+              {/* Sub-Departments / SHS Courses & Programmes */}
+              {(deptFormName.toLowerCase().includes('senior') || deptFormCode === 'SHS' || deptFormSubDepts.length > 0) && (
+                <div className="bg-indigo-50/70 p-3.5 rounded-xl border border-indigo-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block font-black text-indigo-900 text-xs flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-indigo-600" />
+                      Sub-Departments (SHS Courses / Programmes)
+                    </label>
+                    <span className="text-[10px] text-indigo-600 font-bold bg-white px-1.5 py-0.5 rounded border border-indigo-200">
+                      {deptFormSubDepts.length} Programmes
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-indigo-700 leading-relaxed">
+                    Under Senior High School, these sub-departments represent distinct academic tracks/programmes for student enrollment and class streaming.
+                  </p>
+                  
+                  {/* Chips */}
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {deptFormSubDepts.map((sub, sIdx) => (
+                      <span
+                        key={sIdx}
+                        className="inline-flex items-center gap-1 bg-white border border-indigo-200 text-indigo-900 font-bold px-2 py-0.5 rounded-lg text-[11px] shadow-2xs"
+                      >
+                        {sub}
+                        <button
+                          type="button"
+                          onClick={() => setDeptFormSubDepts(deptFormSubDepts.filter((_, i) => i !== sIdx))}
+                          className="text-slate-400 hover:text-rose-600"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Add sub dept input */}
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <input
+                      type="text"
+                      placeholder="Add programme (e.g. Technical Science)..."
+                      value={newSubDeptInput}
+                      onChange={(e) => setNewSubDeptInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (newSubDeptInput.trim()) {
+                            setDeptFormSubDepts([...deptFormSubDepts, newSubDeptInput.trim()]);
+                            setNewSubDeptInput('');
+                          }
+                        }
+                      }}
+                      className="flex-1 px-2.5 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (newSubDeptInput.trim()) {
+                          setDeptFormSubDepts([...deptFormSubDepts, newSubDeptInput.trim()]);
+                          setNewSubDeptInput('');
+                        }
+                      }}
+                      className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
@@ -2290,21 +2639,18 @@ export default function AcademicSetupManager({
             </div>
             <form onSubmit={handleSaveClass} className="space-y-3 text-xs">
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Class / Form Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Basic 4 or JHS 1 B"
-                  value={classFormName}
-                  onChange={(e) => setClassFormName(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl"
-                />
-              </div>
-              <div>
                 <label className="block font-bold text-slate-700 mb-1">Department *</label>
                 <select
                   value={classFormDept}
-                  onChange={(e) => setClassFormDept(e.target.value)}
+                  onChange={(e) => {
+                    const newDept = e.target.value;
+                    setClassFormDept(newDept);
+                    if (newDept.toLowerCase().includes('senior') || newDept.toLowerCase().includes('shs')) {
+                      if (!classFormCourse && courses && courses.length > 0) {
+                        setClassFormCourse(courses[0].name);
+                      }
+                    }
+                  }}
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl font-medium"
                 >
                   {departments.map(d => (
@@ -2312,6 +2658,67 @@ export default function AcademicSetupManager({
                   ))}
                 </select>
               </div>
+
+              {/* SHS Course & Level Selection if Department is SHS */}
+              {(classFormDept.toLowerCase().includes('senior') || classFormDept.toLowerCase().includes('shs')) && (
+                <div className="bg-indigo-50/80 p-3 rounded-xl border border-indigo-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-black text-indigo-900 text-xs flex items-center gap-1.5">
+                      <GraduationCap className="w-4 h-4 text-indigo-600" />
+                      SHS Sub-Department Track
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const chosenCourse = classFormCourse || (courses && courses[0]?.name) || 'Science';
+                        setClassFormName(`${chosenCourse} ${classFormLevel}`);
+                      }}
+                      className="text-[10px] text-indigo-700 font-bold hover:underline cursor-pointer"
+                    >
+                      Auto-fill Class Name
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block font-bold text-indigo-800 text-[11px] mb-1">Course / Programme</label>
+                      <select
+                        value={classFormCourse}
+                        onChange={(e) => setClassFormCourse(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white border border-indigo-200 rounded-lg font-medium text-xs text-indigo-950"
+                      >
+                        {courses && courses.map(c => (
+                          <option key={c.id} value={c.name}>{c.name} ({c.code})</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block font-bold text-indigo-800 text-[11px] mb-1">SHS Form / Level</label>
+                      <select
+                        value={classFormLevel}
+                        onChange={(e: any) => setClassFormLevel(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white border border-indigo-200 rounded-lg font-medium text-xs text-indigo-950"
+                      >
+                        <option value="1">SHS 1 (Level 1)</option>
+                        <option value="2">SHS 2 (Level 2)</option>
+                        <option value="3">SHS 3 (Level 3)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Class / Form Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Science 1 or Basic 4 A"
+                  value={classFormName}
+                  onChange={(e) => setClassFormName(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl font-bold text-slate-800"
+                />
+              </div>
+
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Class Teacher / Form Master</label>
                 <input
