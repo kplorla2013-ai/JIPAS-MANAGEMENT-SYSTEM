@@ -1,0 +1,203 @@
+@import "tailwindcss";
+
+:root {
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-light: #eff6ff;
+  --color-app-bg: #040814;
+  --color-card-bg: #0B142A;
+  --color-text-main: #f8fafc;
+}
+
+/* 
+  High-Contrast Form Fields & Text Visibility Engine
+  Ensures all input, select, and textarea fields have crisp, high-contrast text colors
+  based on their background and theme classes.
+*/
+
+/* 1. Dark background & text-white inputs: strictly enforce crisp white text */
+input[class*="text-white"],
+textarea[class*="text-white"],
+select[class*="text-white"],
+input[class*="bg-["],
+textarea[class*="bg-["],
+select[class*="bg-["],
+input[class*="bg-slate-7"],
+input[class*="bg-slate-8"],
+input[class*="bg-slate-9"],
+input[class*="bg-gray-7"],
+input[class*="bg-gray-8"],
+input[class*="bg-gray-9"],
+input[class*="bg-black"],
+input[class*="bg-neutral-8"],
+input[class*="bg-neutral-9"],
+input[class*="bg-zinc-8"],
+input[class*="bg-zinc-9"],
+input[class*="bg-blue-8"],
+input[class*="bg-blue-9"],
+input[class*="bg-indigo-8"],
+input[class*="bg-indigo-9"],
+input[class*="bg-navy"],
+textarea[class*="bg-slate-7"],
+textarea[class*="bg-slate-8"],
+textarea[class*="bg-slate-9"],
+textarea[class*="bg-gray-7"],
+textarea[class*="bg-gray-8"],
+textarea[class*="bg-gray-9"],
+textarea[class*="bg-black"],
+textarea[class*="bg-neutral-8"],
+textarea[class*="bg-neutral-9"],
+select[class*="bg-slate-7"],
+select[class*="bg-slate-8"],
+select[class*="bg-slate-9"],
+select[class*="bg-gray-7"],
+select[class*="bg-gray-8"],
+select[class*="bg-gray-9"],
+select[class*="bg-black"],
+select[class*="bg-neutral-8"],
+select[class*="bg-neutral-9"] {
+  color: #ffffff !important;
+  caret-color: #60a5fa !important;
+}
+
+/* 2. Specific accent text inputs (e.g. amber code inputs, blue sender IDs) */
+input[class*="text-amber-300"] {
+  color: #fcd34d !important;
+  caret-color: #fbbf24 !important;
+}
+input[class*="text-blue-300"] {
+  color: #93c5fd !important;
+  caret-color: #60a5fa !important;
+}
+input[class*="text-emerald-300"] {
+  color: #6ee7b7 !important;
+  caret-color: #34d399 !important;
+}
+
+/* 3. Form controls on light backgrounds: enforce dark text */
+input[class*="bg-white"],
+input[class*="bg-slate-50"],
+input[class*="bg-slate-100"],
+input[class*="bg-slate-200"],
+input[class*="bg-gray-50"],
+input[class*="bg-gray-100"],
+input[class*="bg-zinc-50"],
+input[class*="bg-neutral-50"],
+input[class*="bg-amber-50"],
+input[class*="bg-indigo-50"],
+input[class*="bg-blue-50"],
+textarea[class*="bg-white"],
+textarea[class*="bg-slate-50"],
+textarea[class*="bg-slate-100"],
+textarea[class*="bg-gray-50"],
+textarea[class*="bg-gray-100"],
+select[class*="bg-white"],
+select[class*="bg-slate-50"],
+select[class*="bg-slate-100"],
+select[class*="bg-gray-50"],
+select[class*="bg-gray-100"] {
+  color: #0f172a !important;
+  caret-color: #0f172a !important;
+}
+
+/* 4. High-contrast placeholder styling */
+input::placeholder,
+textarea::placeholder {
+  color: #94a3b8 !important; /* slate-400 */
+  opacity: 1 !important;
+}
+
+input[class*="bg-white"]::placeholder,
+input[class*="bg-slate-50"]::placeholder,
+input[class*="bg-slate-100"]::placeholder,
+textarea[class*="bg-white"]::placeholder,
+textarea[class*="bg-slate-50"]::placeholder {
+  color: #64748b !important; /* slate-500 for light backgrounds */
+}
+
+/* 5. Dropdown options styling */
+select option,
+select optgroup {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+}
+
+select[class*="bg-white"] option,
+select[class*="bg-slate-50"] option,
+select[class*="bg-slate-100"] option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+/* 6. Browser Autofill high-contrast override */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: #ffffff !important;
+  box-shadow: 0 0 0px 1000px #131e3d inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+input[class*="bg-white"]:-webkit-autofill,
+input[class*="bg-slate-50"]:-webkit-autofill {
+  -webkit-text-fill-color: #0f172a !important;
+  box-shadow: 0 0 0px 1000px #ffffff inset !important;
+}
+
+/* 7. Disabled / Readonly Form Control readability */
+input:disabled,
+textarea:disabled,
+select:disabled {
+  color: #94a3b8 !important;
+  background-color: #0b152e !important;
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+/* 
+  8. Standardized A4 Page & Print Media Layout Engine
+  Ensures all Report Cards, Academic Transcripts, and Invoices print strictly on A4 paper (210mm x 297mm)
+*/
+@page {
+  size: A4 portrait;
+  margin: 10mm;
+}
+
+@page landscape-a4 {
+  size: A4 landscape;
+  margin: 10mm;
+}
+
+@media print {
+  html, body {
+    width: 210mm !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .print-a4-page {
+    width: 100% !important;
+    max-width: 210mm !important;
+    min-height: 277mm !important;
+    box-sizing: border-box !important;
+    margin: 0 auto !important;
+    padding: 8mm !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
+  .print-no-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+}
