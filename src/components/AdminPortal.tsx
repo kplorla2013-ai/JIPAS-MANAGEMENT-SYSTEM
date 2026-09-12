@@ -32,7 +32,7 @@ import {
   FileText, Shield, Plus, Search, CheckCircle, AlertCircle, ArrowUpRight, DollarSign, BookOpen,
   Settings, UserCog, GraduationCap, ClipboardCheck, BarChart3, MessageSquare, KeyRound, Layers, Building2, School, Bookmark,
   Send, Eye, History, RefreshCw, CheckCircle2, Mail, Clock, AlertTriangle, LogOut, Printer, Wallet, TrendingUp, ChevronRight, ChevronDown,
-  PanelLeftClose, PanelLeftOpen, MessageCircle, Database, Trash2, X, Sparkles, Palette
+  PanelLeftClose, PanelLeftOpen, MessageCircle, Database, Trash2, X, Sparkles, Palette, Download
 } from 'lucide-react';
 
 interface AdminPortalProps {
@@ -506,6 +506,64 @@ export default function AdminPortal({
     }
   };
 
+  const handleDashboardBulkExport = () => {
+    try {
+      const exportRows = students.map(s => {
+        const studentReports = (reports || []).filter(r => r.admissionNo === s.admissionNo || r.studentId === s.id);
+        const latestReport = studentReports[studentReports.length - 1];
+        return {
+          'Admission No': s.admissionNo,
+          'Full Name': s.fullName,
+          'Gender': s.gender,
+          'Date of Birth': s.dob,
+          'Department': s.department,
+          'Class Name': s.className,
+          'House': s.house,
+          'Parent Name': s.parentName,
+          'Parent Phone': s.parentPhone,
+          'Status': s.status,
+          'Academic Year': s.academicYear,
+          'Term': s.term,
+          'Total Academic Reports': studentReports.length,
+          'Latest Total Score': latestReport ? latestReport.totalScore : '--',
+          'Latest Average': latestReport ? latestReport.averageScore : '--',
+          'Latest Position': latestReport ? latestReport.position : '--',
+          'Promotion Status': latestReport ? (latestReport.promotionStatus || '--') : '--'
+        };
+      });
+
+      if (exportRows.length === 0) {
+        alert('No student records available to export.');
+        return;
+      }
+
+      const headers = Object.keys(exportRows[0]);
+      const csvRows = [headers.join(',')];
+      for (const row of exportRows) {
+        const values = headers.map(h => {
+          const val = (row as any)[h];
+          const escaped = ('' + (val ?? '')).replace(/"/g, '""');
+          return `"${escaped}"`;
+        });
+        csvRows.push(values.join(','));
+      }
+
+      const csvString = csvRows.join('\n');
+      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const dateStr = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `jipas_dashboard_bulk_student_academic_archive_${dateStr}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(`Bulk export failed: ${err?.message || 'Unknown error'}`);
+    }
+  };
+
   const [isCleaningOrphaned, setIsCleaningOrphaned] = useState(false);
   const [cleanSuccessMsg, setCleanSuccessMsg] = useState('');
 
@@ -850,6 +908,21 @@ export default function AdminPortal({
             {/* 1. DASHBOARD MODULE */}
             {activeModule === 'dashboard' && (
               <div className="space-y-6">
+                {/* Dashboard Header with Bulk Export Button */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                  <div>
+                    <h2 className="text-lg font-black text-slate-900">Administrator Dashboard & Analytics</h2>
+                    <p className="text-xs text-slate-500 mt-0.5">Overview of school enrollment, financial status, and academic progress.</p>
+                  </div>
+                  <button
+                    onClick={handleDashboardBulkExport}
+                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 transition-all cursor-pointer flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Bulk Export Students & Academic Records (CSV)</span>
+                  </button>
+                </div>
+
             {/* Top Stat Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 gap-4">
               <div 
