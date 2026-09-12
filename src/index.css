@@ -11,56 +11,130 @@
 
 /* 
   High-Contrast Form Fields & Text Visibility Engine
-  Ensures all input, select, and textarea fields have crisp, high-contrast text colors
-  based on their background and theme classes.
+  Ensures all input, select, and textarea fields have crisp, visible, high-contrast text:
+  - Dark fields have bright white text (#ffffff)
+  - White / Light fields ALWAYS have dark slate text (#0f172a)
 */
 
-/* 1. Dark background & text-white inputs: strictly enforce crisp white text */
-input[class*="text-white"],
-textarea[class*="text-white"],
-select[class*="text-white"],
-input[class*="bg-["],
-textarea[class*="bg-["],
-select[class*="bg-["],
+/* 1. Default Baseline Form Control Styling (Light-First default for all inputs) */
+input,
+textarea,
+select {
+  color: #0f172a;
+  caret-color: #2563eb;
+}
+
+/* 2. Explicit Light / White Form Controls (ALWAYS Dark Slate 900 Text) */
+input[class*="bg-white"],
+input[class*="bg-slate-50"],
+input[class*="bg-slate-100"],
+input[class*="bg-slate-200"],
+input[class*="bg-gray-50"],
+input[class*="bg-gray-100"],
+input[class*="bg-zinc-50"],
+input[class*="bg-zinc-100"],
+input[class*="bg-neutral-50"],
+input[class*="bg-neutral-100"],
+input[class*="text-slate-9"],
+input[class*="text-slate-8"],
+input[class*="text-gray-9"],
+input[class*="text-gray-8"],
+input[class*="text-black"],
+textarea[class*="bg-white"],
+textarea[class*="bg-slate-50"],
+textarea[class*="bg-slate-100"],
+textarea[class*="bg-slate-200"],
+textarea[class*="bg-gray-50"],
+textarea[class*="bg-gray-100"],
+textarea[class*="text-slate-9"],
+textarea[class*="text-slate-8"],
+textarea[class*="text-gray-9"],
+textarea[class*="text-gray-8"],
+textarea[class*="text-black"],
+select[class*="bg-white"],
+select[class*="bg-slate-50"],
+select[class*="bg-slate-100"],
+select[class*="bg-slate-200"],
+select[class*="bg-gray-50"],
+select[class*="bg-gray-100"],
+select[class*="text-slate-9"],
+select[class*="text-slate-8"],
+select[class*="text-gray-9"],
+select[class*="text-gray-8"],
+select[class*="text-black"],
+.bg-white input:not([class*="bg-[#0"]):not([class*="bg-[#1"]):not([class*="bg-slate-8"]):not([class*="bg-slate-9"]):not([class*="bg-blue-9"]):not([class*="bg-indigo-9"]):not([class*="bg-black"]),
+.bg-white textarea:not([class*="bg-[#0"]):not([class*="bg-[#1"]):not([class*="bg-slate-8"]):not([class*="bg-slate-9"]):not([class*="bg-blue-9"]):not([class*="bg-indigo-9"]):not([class*="bg-black"]),
+.bg-white select:not([class*="bg-[#0"]):not([class*="bg-[#1"]):not([class*="bg-slate-8"]):not([class*="bg-slate-9"]):not([class*="bg-blue-9"]):not([class*="bg-indigo-9"]):not([class*="bg-black"]),
+.bg-slate-50 input:not([class*="bg-[#0"]):not([class*="bg-[#1"]):not([class*="bg-slate-8"]):not([class*="bg-slate-9"]),
+.bg-slate-100 input:not([class*="bg-[#0"]):not([class*="bg-[#1"]):not([class*="bg-slate-8"]):not([class*="bg-slate-9"]) {
+  color: #0f172a !important;
+  caret-color: #2563eb !important;
+}
+
+/* 3. Dark-Themed Form Controls (Explicit Dark Backgrounds -> Crisp White Text) */
+input[class*="bg-[#0"],
+input[class*="bg-[#1"],
+input[class*="bg-[#2"],
+input[class*="bg-[#3"],
 input[class*="bg-slate-7"],
 input[class*="bg-slate-8"],
 input[class*="bg-slate-9"],
 input[class*="bg-gray-7"],
 input[class*="bg-gray-8"],
 input[class*="bg-gray-9"],
-input[class*="bg-black"],
-input[class*="bg-neutral-8"],
-input[class*="bg-neutral-9"],
 input[class*="bg-zinc-8"],
 input[class*="bg-zinc-9"],
+input[class*="bg-neutral-8"],
+input[class*="bg-neutral-9"],
 input[class*="bg-blue-8"],
 input[class*="bg-blue-9"],
 input[class*="bg-indigo-8"],
 input[class*="bg-indigo-9"],
+input[class*="bg-black"],
 input[class*="bg-navy"],
+textarea[class*="bg-[#0"],
+textarea[class*="bg-[#1"],
+textarea[class*="bg-[#2"],
+textarea[class*="bg-[#3"],
 textarea[class*="bg-slate-7"],
 textarea[class*="bg-slate-8"],
 textarea[class*="bg-slate-9"],
 textarea[class*="bg-gray-7"],
 textarea[class*="bg-gray-8"],
 textarea[class*="bg-gray-9"],
-textarea[class*="bg-black"],
+textarea[class*="bg-zinc-8"],
+textarea[class*="bg-zinc-9"],
 textarea[class*="bg-neutral-8"],
 textarea[class*="bg-neutral-9"],
+textarea[class*="bg-blue-8"],
+textarea[class*="bg-blue-9"],
+textarea[class*="bg-indigo-8"],
+textarea[class*="bg-indigo-9"],
+textarea[class*="bg-black"],
+select[class*="bg-[#0"],
+select[class*="bg-[#1"],
+select[class*="bg-[#2"],
+select[class*="bg-[#3"],
 select[class*="bg-slate-7"],
 select[class*="bg-slate-8"],
 select[class*="bg-slate-9"],
 select[class*="bg-gray-7"],
 select[class*="bg-gray-8"],
 select[class*="bg-gray-9"],
-select[class*="bg-black"],
+select[class*="bg-zinc-8"],
+select[class*="bg-zinc-9"],
 select[class*="bg-neutral-8"],
-select[class*="bg-neutral-9"] {
+select[class*="bg-neutral-9"],
+select[class*="bg-blue-8"],
+select[class*="bg-blue-9"],
+select[class*="bg-indigo-8"],
+select[class*="bg-indigo-9"],
+select[class*="bg-black"] {
   color: #ffffff !important;
   caret-color: #60a5fa !important;
 }
 
-/* 2. Specific accent text inputs (e.g. amber code inputs, blue sender IDs) */
+/* 4. Vibrant Accent Text on Form Inputs */
 input[class*="text-amber-300"] {
   color: #fcd34d !important;
   caret-color: #fbbf24 !important;
@@ -69,91 +143,92 @@ input[class*="text-blue-300"] {
   color: #93c5fd !important;
   caret-color: #60a5fa !important;
 }
-input[class*="text-emerald-300"] {
+input[class*="text-emerald-300"],
+input[class*="text-emerald-400"] {
   color: #6ee7b7 !important;
   caret-color: #34d399 !important;
 }
-
-/* 3. Form controls on light backgrounds: enforce dark text */
-input[class*="bg-white"],
-input[class*="bg-slate-50"],
-input[class*="bg-slate-100"],
-input[class*="bg-slate-200"],
-input[class*="bg-gray-50"],
-input[class*="bg-gray-100"],
-input[class*="bg-zinc-50"],
-input[class*="bg-neutral-50"],
-input[class*="bg-amber-50"],
-input[class*="bg-indigo-50"],
-input[class*="bg-blue-50"],
-textarea[class*="bg-white"],
-textarea[class*="bg-slate-50"],
-textarea[class*="bg-slate-100"],
-textarea[class*="bg-gray-50"],
-textarea[class*="bg-gray-100"],
-select[class*="bg-white"],
-select[class*="bg-slate-50"],
-select[class*="bg-slate-100"],
-select[class*="bg-gray-50"],
-select[class*="bg-gray-100"] {
-  color: #0f172a !important;
-  caret-color: #0f172a !important;
+input[class*="text-cyan-300"] {
+  color: #67e8f9 !important;
+  caret-color: #22d3ee !important;
 }
 
-/* 4. High-contrast placeholder styling */
+/* 5. High-contrast Placeholders */
 input::placeholder,
 textarea::placeholder {
-  color: #94a3b8 !important; /* slate-400 */
+  color: #64748b !important; /* slate-500 default */
   opacity: 1 !important;
 }
 
-input[class*="bg-white"]::placeholder,
-input[class*="bg-slate-50"]::placeholder,
-input[class*="bg-slate-100"]::placeholder,
-textarea[class*="bg-white"]::placeholder,
-textarea[class*="bg-slate-50"]::placeholder {
-  color: #64748b !important; /* slate-500 for light backgrounds */
+input[class*="bg-[#"]::placeholder,
+input[class*="bg-slate-8"]::placeholder,
+input[class*="bg-slate-9"]::placeholder,
+input[class*="bg-blue-9"]::placeholder,
+input[class*="bg-indigo-9"]::placeholder,
+textarea[class*="bg-[#"]::placeholder,
+textarea[class*="bg-slate-8"]::placeholder,
+textarea[class*="bg-slate-9"]::placeholder {
+  color: #94a3b8 !important; /* slate-400 for dark backgrounds */
 }
 
-/* 5. Dropdown options styling */
+/* 6. Dropdown options styling */
 select option,
 select optgroup {
-  background-color: #0f172a !important;
-  color: #ffffff !important;
-}
-
-select[class*="bg-white"] option,
-select[class*="bg-slate-50"] option,
-select[class*="bg-slate-100"] option {
   background-color: #ffffff !important;
   color: #0f172a !important;
 }
 
-/* 6. Browser Autofill high-contrast override */
+select[class*="bg-[#"] option,
+select[class*="bg-[#"] optgroup,
+select[class*="bg-slate-8"] option,
+select[class*="bg-slate-9"] option,
+select[class*="bg-blue-9"] option,
+select[class*="bg-indigo-9"] option,
+select[class*="bg-black"] option {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+}
+
+/* 7. Browser Autofill high-contrast override (Respects background theme) */
 input:-webkit-autofill,
 input:-webkit-autofill:hover, 
 input:-webkit-autofill:focus,
 textarea:-webkit-autofill,
 select:-webkit-autofill {
-  -webkit-text-fill-color: #ffffff !important;
-  box-shadow: 0 0 0px 1000px #131e3d inset !important;
+  -webkit-text-fill-color: #0f172a !important;
+  box-shadow: 0 0 0px 1000px #ffffff inset !important;
   transition: background-color 5000s ease-in-out 0s;
 }
 
-input[class*="bg-white"]:-webkit-autofill,
-input[class*="bg-slate-50"]:-webkit-autofill {
-  -webkit-text-fill-color: #0f172a !important;
-  box-shadow: 0 0 0px 1000px #ffffff inset !important;
+input[class*="bg-[#"]:-webkit-autofill,
+input[class*="bg-[#"]:-webkit-autofill:hover,
+input[class*="bg-[#"]:-webkit-autofill:focus,
+input[class*="bg-slate-8"]:-webkit-autofill,
+input[class*="bg-slate-9"]:-webkit-autofill,
+input[class*="bg-blue-9"]:-webkit-autofill,
+input[class*="bg-indigo-9"]:-webkit-autofill,
+input[class*="bg-black"]:-webkit-autofill,
+textarea[class*="bg-[#"]:-webkit-autofill,
+select[class*="bg-[#"]:-webkit-autofill {
+  -webkit-text-fill-color: #ffffff !important;
+  box-shadow: 0 0 0px 1000px #131e3d inset !important;
 }
 
-/* 7. Disabled / Readonly Form Control readability */
+/* 8. Disabled / Readonly Form Controls */
 input:disabled,
 textarea:disabled,
 select:disabled {
-  color: #94a3b8 !important;
-  background-color: #0b152e !important;
+  color: #64748b !important;
+  background-color: #f1f5f9 !important;
   cursor: not-allowed;
   opacity: 0.85;
+}
+
+input[class*="bg-[#"]:disabled,
+textarea[class*="bg-[#"]:disabled,
+select[class*="bg-[#"]:disabled {
+  color: #94a3b8 !important;
+  background-color: #0b152e !important;
 }
 
 /* 
