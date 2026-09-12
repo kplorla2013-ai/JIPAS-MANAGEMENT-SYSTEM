@@ -218,6 +218,108 @@ export default function BackupRecoveryManager({
     }
   };
 
+  // Helper to convert array of objects to CSV and download
+  const downloadCSV = (filename: string, rows: Record<string, any>[]) => {
+    if (!rows || rows.length === 0) {
+      alert('No data available to export.');
+      return;
+    }
+    const headers = Object.keys(rows[0]);
+    const csvRows = [];
+    csvRows.push(headers.join(','));
+
+    for (const row of rows) {
+      const values = headers.map(header => {
+        const val = row[header];
+        const escaped = ('' + (val ?? '')).replace(/"/g, '""');
+        return `"${escaped}"`;
+      });
+      csvRows.push(values.join(','));
+    }
+
+    const csvString = csvRows.join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportStudentsCSV = () => {
+    const studentRows = students.map(s => ({
+      'Admission No': s.admissionNo,
+      'Full Name': s.fullName,
+      'Gender': s.gender,
+      'Date of Birth': s.dob,
+      'Department': s.department,
+      'Class Name': s.className,
+      'Course / Programme': s.course || '--',
+      'Roll No': s.rollNo,
+      'House': s.house,
+      'Parent Name': s.parentName,
+      'Parent Phone': s.parentPhone,
+      'Status': s.status,
+      'Academic Year': s.academicYear,
+      'Term': s.term,
+      'Enrollment Date': s.enrollmentDate
+    }));
+    const dateStr = new Date().toISOString().slice(0, 10);
+    downloadCSV(`jipas_students_bulk_archive_${dateStr}.csv`, studentRows);
+    showNotice(`Successfully exported ${students.length} student records as structured CSV for archiving.`);
+  };
+
+  const handleExportAcademicRecordsCSV = () => {
+    const reportRows = reports.map(r => ({
+      'Admission No': r.admissionNo,
+      'Student Name': r.studentName,
+      'Class Name': r.className,
+      'Term': r.term,
+      'Academic Year': r.academicYear,
+      'Attendance Present': r.attendancePresent,
+      'Attendance Total': r.attendanceTotal,
+      'Total Score': r.totalScore,
+      'Average Score': r.averageScore,
+      'Position': r.position,
+      'Promotion Status': r.promotionStatus || '--',
+      'Conduct': r.conduct,
+      'Teacher Remarks': r.teacherComment,
+      'Headmaster Remarks': r.headmasterComment,
+      'Subjects Count': r.scores?.length || 0
+    }));
+    const dateStr = new Date().toISOString().slice(0, 10);
+    downloadCSV(`jipas_academic_records_archive_${dateStr}.csv`, reportRows);
+    showNotice(`Successfully exported ${reports.length} academic report sheets as structured CSV.`);
+  };
+
+  const handleExportFinancialsCSV = () => {
+    const paymentRows = payments.map(p => ({
+      'Transaction ID': p.transactionId,
+      'Admission No': p.admissionNo,
+      'Student Name': p.studentName,
+      'Class Name': p.className,
+      'Amount Paid': p.amount,
+      'Payment Method': p.paymentMethod,
+      'Term': p.term,
+      'Academic Year': p.academicYear,
+      'Date Paid': p.date,
+      'Status': p.status || 'Verified'
+    }));
+    const dateStr = new Date().toISOString().slice(0, 10);
+    downloadCSV(`jipas_financial_archive_${dateStr}.csv`, paymentRows);
+    showNotice(`Successfully exported ${payments.length} financial transaction records as structured CSV.`);
+  };
+
+  const handleExportAllCSVBundle = () => {
+    handleExportStudentsCSV();
+    setTimeout(() => handleExportAcademicRecordsCSV(), 600);
+    setTimeout(() => handleExportFinancialsCSV(), 1200);
+    showNotice('All CSV/Excel archiving spreadsheets (Students, Academic Records, and Financials) generated successfully!');
+  };
+
   // 2. Capture Snapshot to localStorage manually
   const handleCaptureInstantSnapshot = () => {
     try {
@@ -745,6 +847,105 @@ export default function BackupRecoveryManager({
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Bulk CSV & Excel Data Archive Export Section */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-emerald-600" />
+                  Bulk CSV & Excel Data Archive Export
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Download structured CSV spreadsheets for offline archiving in Excel, Google Sheets, or LibreOffice.
+                </p>
+              </div>
+              <button
+                onClick={handleExportAllCSVBundle}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Download Complete CSV Bundle
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+              {/* Card 1: Students */}
+              <div className="bg-slate-50 hover:bg-indigo-50/40 border border-slate-200 hover:border-indigo-300 rounded-xl p-4 transition-all flex flex-col justify-between space-y-3">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-slate-900 text-xs flex items-center gap-1.5">
+                      <Users className="w-4 h-4 text-indigo-600" />
+                      Student Registry CSV
+                    </span>
+                    <span className="bg-indigo-100 text-indigo-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      {students.length} Records
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Export student admission numbers, names, departments, classes, house assignments, and parent contacts.
+                  </p>
+                </div>
+                <button
+                  onClick={handleExportStudentsCSV}
+                  className="w-full py-2 bg-white hover:bg-indigo-600 hover:text-white text-indigo-700 border border-indigo-200 font-bold rounded-lg text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Export Students CSV
+                </button>
+              </div>
+
+              {/* Card 2: Academic Records */}
+              <div className="bg-slate-50 hover:bg-emerald-50/40 border border-slate-200 hover:border-emerald-300 rounded-xl p-4 transition-all flex flex-col justify-between space-y-3">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-slate-900 text-xs flex items-center gap-1.5">
+                      <Layers className="w-4 h-4 text-emerald-600" />
+                      Academic Records CSV
+                    </span>
+                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      {reports.length} Reports
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Export terminal exam results, composite scores, term averages, class positions, and teacher remarks.
+                  </p>
+                </div>
+                <button
+                  onClick={handleExportAcademicRecordsCSV}
+                  className="w-full py-2 bg-white hover:bg-emerald-600 hover:text-white text-emerald-700 border border-emerald-200 font-bold rounded-lg text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Export Academic CSV
+                </button>
+              </div>
+
+              {/* Card 3: Financials */}
+              <div className="bg-slate-50 hover:bg-amber-50/40 border border-slate-200 hover:border-amber-300 rounded-xl p-4 transition-all flex flex-col justify-between space-y-3">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-slate-900 text-xs flex items-center gap-1.5">
+                      <HardDrive className="w-4 h-4 text-amber-600" />
+                      Financial Records CSV
+                    </span>
+                    <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      {payments.length} Transactions
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Export fee payments, transaction references, billing histories, and verification statuses.
+                  </p>
+                </div>
+                <button
+                  onClick={handleExportFinancialsCSV}
+                  className="w-full py-2 bg-white hover:bg-amber-600 hover:text-white text-amber-700 border border-amber-200 font-bold rounded-lg text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Export Financials CSV
+                </button>
+              </div>
             </div>
           </div>
 
