@@ -547,6 +547,8 @@ export interface UserAccountItem {
   approvedAt?: string;
   privilege?: 'read' | 'read_write';
   allowedModules?: string[];
+  isEmailVerified?: boolean;
+  emailVerifiedAt?: string;
 }
 
 export interface TeacherAssignmentItem {

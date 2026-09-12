@@ -9,6 +9,8 @@ import {
 import { SystemSettingsConfig, UserAccountItem, ThemePaletteConfig } from '../../types';
 import JIPASLogo, { getSchoolLogo, setSchoolLogo, resetSchoolLogo } from '../common/JIPASLogo';
 import ThemePaletteManager from './ThemePaletteManager';
+import EmailVerificationModal from '../common/EmailVerificationModal';
+import { isEmailVerified } from '../../services/verificationService';
 import { useI18n } from '../../i18n/I18nContext';
 import { 
   subscribeUsers, 
@@ -90,6 +92,12 @@ export default function SystemSettingsManager({
   const [userFormAllowedModules, setUserFormAllowedModules] = useState<string[]>([
     'dashboard', 'setup_management', 'system_settings', 'teachers', 'students', 'exams', 'fees', 'notif_send', 'logs_user'
   ]);
+
+  // Email Verification state for User Account Creation
+  const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
+  const [verifiedEmails, setVerifiedEmails] = useState<Set<string>>(new Set());
+  const [targetVerificationEmail, setTargetVerificationEmail] = useState('');
+  const [targetVerificationName, setTargetVerificationName] = useState('');
 
   // RBAC Roles & Permissions Management State
   const [userMgmtTab, setUserMgmtTab] = useState<'users' | 'roles'>('users');
@@ -353,6 +361,40 @@ export default function SystemSettingsManager({
     ]);
   };
 
+  // Execute saving newly created user after verification
+  const executeSaveNewUser = async (emailVerified?: string) => {
+    const finalEmail = (emailVerified || userFormEmail).trim();
+    const newUser: UserAccountItem = {
+      id: `usr-${Date.now()}`,
+      name: userFormName,
+      email: finalEmail || `${userFormUsername}@jipas.edu.gh`,
+      username: userFormUsername,
+      role: userFormRole,
+      phone: userFormPhone,
+      status: 'Active',
+      isApproved: true,
+      lastLogin: 'Never',
+      createdAt: new Date().toISOString().split('T')[0],
+      registrationType: userFormRole === 'student' ? 'student' : (userFormRole === 'admin' ? 'admin' : 'faculty'),
+      department: userFormDepartment,
+      className: userFormClass,
+      privilege: userFormPrivilege,
+      allowedModules: userFormAllowedModules,
+      isEmailVerified: !!finalEmail,
+      emailVerifiedAt: finalEmail ? new Date().toISOString() : undefined
+    };
+    await saveUserAccount(newUser);
+    setShowAddUserModal(false);
+    triggerToast(`New user account "${userFormName}" created and activated successfully.`);
+  };
+
+  const handleUserEmailVerificationSuccess = (email: string) => {
+    const clean = email.trim().toLowerCase();
+    setVerifiedEmails(prev => new Set(prev).add(clean));
+    setShowEmailVerificationModal(false);
+    executeSaveNewUser(clean);
+  };
+
   // Save Add or Edit User
   const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -374,28 +416,22 @@ export default function SystemSettingsManager({
       await saveUserAccount(updatedUser);
       setEditingUser(null);
       triggerToast(`User "${userFormName}" updated successfully.`);
-    } else {
-      const newUser: UserAccountItem = {
-        id: `usr-${Date.now()}`,
-        name: userFormName,
-        email: userFormEmail || `${userFormUsername}@jipas.edu.gh`,
-        username: userFormUsername,
-        role: userFormRole,
-        phone: userFormPhone,
-        status: 'Active',
-        isApproved: true,
-        lastLogin: 'Never',
-        createdAt: new Date().toISOString().split('T')[0],
-        registrationType: userFormRole === 'student' ? 'student' : (userFormRole === 'admin' ? 'admin' : 'faculty'),
-        department: userFormDepartment,
-        className: userFormClass,
-        privilege: userFormPrivilege,
-        allowedModules: userFormAllowedModules
-      };
-      await saveUserAccount(newUser);
-      setShowAddUserModal(false);
-      triggerToast(`New user account "${userFormName}" created and activated.`);
+      return;
     }
+
+    // When creating a new system user with an email, verify email ownership
+    const cleanEmail = userFormEmail.trim().toLowerCase();
+    if (cleanEmail) {
+      const alreadyVerified = verifiedEmails.has(cleanEmail) || await isEmailVerified(cleanEmail);
+      if (!alreadyVerified) {
+        setTargetVerificationEmail(cleanEmail);
+        setTargetVerificationName(userFormName.trim());
+        setShowEmailVerificationModal(true);
+        return;
+      }
+    }
+
+    await executeSaveNewUser(cleanEmail);
   };
 
   // Delete User
@@ -2391,7 +2427,29 @@ export default function SystemSettingsManager({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Email Address</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-bold text-slate-700">Email Address</label>
+                    {userFormEmail.trim() && (
+                      verifiedEmails.has(userFormEmail.trim().toLowerCase()) ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          <CheckCircle2 className="w-3 h-3" /> Verified
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!userFormEmail.trim()) return;
+                            setTargetVerificationEmail(userFormEmail.trim().toLowerCase());
+                            setTargetVerificationName(userFormName.trim() || 'System User');
+                            setShowEmailVerificationModal(true);
+                          }}
+                          className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+                        >
+                          Send Code
+                        </button>
+                      )
+                    )}
+                  </div>
                   <input
                     type="email"
                     value={userFormEmail}
@@ -2508,6 +2566,16 @@ export default function SystemSettingsManager({
             </div>
           </div>
         </div>
+      )}
+
+      {/* EMAIL OWNERSHIP VERIFICATION MODAL */}
+      {showEmailVerificationModal && (
+        <EmailVerificationModal
+          email={targetVerificationEmail}
+          recipientName={targetVerificationName}
+          onVerified={handleUserEmailVerificationSuccess}
+          onClose={() => setShowEmailVerificationModal(false)}
+        />
       )}
     </div>
   );

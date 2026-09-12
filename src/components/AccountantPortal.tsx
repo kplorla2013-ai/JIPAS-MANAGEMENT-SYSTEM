@@ -38,6 +38,11 @@ export type AccountantTab = 'collections' | 'bills' | 'new-payment' | 'fee-setti
 
 export const getInitialAccountantTab = (): AccountantTab => {
   if (typeof window !== 'undefined') {
+    if (localStorage.getItem('jipas_force_dashboard') === 'true') {
+      localStorage.removeItem('jipas_force_dashboard');
+      window.location.hash = 'accountant/collections';
+      return 'collections';
+    }
     const hash = window.location.hash.replace(/^#\/?/, '');
     if (hash.startsWith('accountant/')) {
       const tabPart = hash.replace('accountant/', '');

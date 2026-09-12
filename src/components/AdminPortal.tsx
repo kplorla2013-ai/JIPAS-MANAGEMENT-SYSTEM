@@ -77,6 +77,7 @@ interface AdminPortalProps {
   onRestoreData?: (data: any) => void;
   onLogout?: () => void;
   onCleanOrphaned?: () => Promise<{ cleanedBillsCount: number, cleanedReportsCount: number }>;
+  onClearAllData?: () => void;
 }
 
 // Valid administrative module identifiers for URL hash routing and refresh persistence
@@ -279,12 +280,18 @@ export default function AdminPortal({
   onAddNotification,
   onRestoreData,
   onLogout,
-  onCleanOrphaned
+  onCleanOrphaned,
+  onClearAllData
 }: AdminPortalProps) {
   const { t } = useI18n();
   
   // Persistent active module: reloads current page directly on refresh from URL hash or localStorage
   const [activeModule, setActiveModule] = useState<string>(() => {
+    if (localStorage.getItem('jipas_force_dashboard') === 'true') {
+      localStorage.removeItem('jipas_force_dashboard');
+      window.location.hash = 'dashboard';
+      return 'dashboard';
+    }
     const hash = window.location.hash.replace('#', '');
     if (hash && VALID_ADMIN_MODULES.has(hash)) return hash;
     const saved = localStorage.getItem('jipas_active_page_admin');
@@ -398,32 +405,42 @@ export default function AdminPortal({
     }));
   };
 
-  const [hasDemoData, setHasDemoData] = useState<boolean>(false);
+  const [hasDemoData, setHasDemoData] = useState<boolean>(true);
   const [isClearingDemo, setIsClearingDemo] = useState<boolean>(false);
+  const [showClearDemoModal, setShowClearDemoModal] = useState<boolean>(false);
 
   useEffect(() => {
-    checkHasDemoData().then(setHasDemoData);
+    checkHasDemoData().then(val => {
+      setHasDemoData(val);
+    });
   }, []);
 
-  const handleClearDemoData = async () => {
-    if (confirm("Are you sure you want to permanently clear all initial setup demo data? This cannot be undone.")) {
-      setIsClearingDemo(true);
-      try {
-        await clearDemoData();
-        setHasDemoData(false);
-        // We'll also empty the setup lists since the collections are now empty
-        onUpdateAcademicYears([]);
-        onUpdateTerms([]);
-        onUpdateDepartments([]);
-        onUpdateClasses([]);
-        onUpdateHouses([]);
-        onUpdateSubjects([]);
-        alert("Demo data successfully cleared!");
-      } catch (err) {
-        alert("Failed to clear demo data.");
-      } finally {
-        setIsClearingDemo(false);
+  const handleConfirmClearDemoData = async () => {
+    setIsClearingDemo(true);
+    try {
+      await clearDemoData();
+      setHasDemoData(false);
+      setShowClearDemoModal(false);
+      
+      // Update memory state across all modules
+      if (onClearAllData) {
+        onClearAllData();
       }
+      onUpdateAcademicYears([]);
+      onUpdateTerms([]);
+      onUpdateDepartments([]);
+      onUpdateClasses([]);
+      onUpdateHouses([]);
+      onUpdateSubjects([]);
+      if (onUpdateCourses) onUpdateCourses([]);
+      if (onUpdateReports) onUpdateReports([]);
+      
+      alert("All initial demo data has been permanently cleared from Firestore database and local storage. You can now enter your own real school data!");
+    } catch (err) {
+      console.error('Failed to clear demo data:', err);
+      alert("Failed to clear demo data. Please check your network connection.");
+    } finally {
+      setIsClearingDemo(false);
     }
   };
 
@@ -761,16 +778,16 @@ export default function AdminPortal({
             </div>
 
             <div className="flex flex-wrap items-center gap-3 shrink-0">
-              {hasDemoData && (
-                <button
-                  onClick={handleClearDemoData}
-                  disabled={isClearingDemo}
-                  className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold shadow-lg transition-all cursor-pointer border bg-rose-600 hover:bg-rose-700 border-rose-500 text-white"
-                >
-                  <Trash2 className="w-4 h-4 text-white" />
-                  <span>{isClearingDemo ? 'Clearing...' : 'Clear Initial Demo Data'}</span>
-                </button>
-              )}
+              <button
+                onClick={() => setShowClearDemoModal(true)}
+                disabled={isClearingDemo}
+                id="admin-clear-demo-data-btn"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all cursor-pointer border bg-rose-600/90 hover:bg-rose-600 border-rose-400/50 text-white"
+                title="Clear all initial demo records and start fresh"
+              >
+                <Trash2 className="w-4 h-4 text-white" />
+                <span>{isClearingDemo ? 'Clearing...' : 'Clear Initial Demo Data'}</span>
+              </button>
               
               <button
                 onClick={handleBackupDatabase}
@@ -1245,6 +1262,69 @@ export default function AdminPortal({
           </motion.div>
         </AnimatePresence>
       </div>
+
+      {/* Clear Demo Data Confirmation Modal */}
+      {showClearDemoModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200 text-left space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center shrink-0">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-900">Clear Initial Demo Data?</h3>
+                <p className="text-xs text-slate-500 font-medium">Permanent database reset for live deployment</p>
+              </div>
+            </div>
+
+            <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 text-xs text-rose-900 space-y-2">
+              <p className="font-bold flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                This will permanently remove pre-stored sample records:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-slate-700 text-[11px] pl-1">
+                <li>Demo students & admission records</li>
+                <li>Demo teachers & faculty assignments</li>
+                <li>Demo terminal reports, assessments & grades</li>
+                <li>Demo fee bills, transactions & receipts</li>
+                <li>Demo academic years, terms, classes, houses & subjects</li>
+              </ul>
+              <p className="text-[11px] text-emerald-800 font-semibold bg-emerald-50 border border-emerald-200 p-2 rounded-lg mt-2">
+                ✓ Your Admin account, credentials, and custom system settings will be safely preserved.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowClearDemoModal(false)}
+                disabled={isClearingDemo}
+                className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmClearDemoData}
+                disabled={isClearingDemo}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer transition-colors flex items-center gap-2"
+              >
+                {isClearingDemo ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Wiping Demo Data...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Yes, Permanently Clear All Demo Data</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Floating Quick Action Speed Dial */}
       <QuickActionSpeedDial portalType="admin" onAction={handleQuickAction} />

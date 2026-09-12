@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, UserAccountItem } from '../types';
 import { 
   Mail, Eye, EyeOff, LogIn, CheckCircle2, Lock, Loader2, 
@@ -7,7 +7,17 @@ import {
 } from 'lucide-react';
 import JIPASLogo from './common/JIPASLogo';
 import LanguageSwitcher from './common/LanguageSwitcher';
-import { authenticateWithFirebase, requestPasswordReset, saveUserAccount, getStoredUsers, getStaffSecretCode, validateAndConsumeStaffSecretCode } from '../services/dbService';
+import EmailVerificationModal from './common/EmailVerificationModal';
+import { isEmailVerified } from '../services/verificationService';
+import { 
+  authenticateWithFirebase, 
+  requestPasswordReset, 
+  saveUserAccount, 
+  getStoredUsers, 
+  getStaffSecretCode, 
+  validateAndConsumeStaffSecretCode,
+  subscribeStaffSecretCodes
+} from '../services/dbService';
 
 interface LoginScreenProps {
   onLogin: (user: User) => void;
@@ -20,6 +30,23 @@ type AuthViewMode = 'login' | 'register_faculty' | 'register_student';
 export default function LoginScreen({ onLogin, studentsList, teachersList = [] }: LoginScreenProps) {
   const [viewMode, setViewMode] = useState<AuthViewMode>('login');
   
+  // Real-time synchronization of Staff Secret Code across devices (Device A, B, C...)
+  const [activeSecretCode, setActiveSecretCode] = useState<string>(getStaffSecretCode());
+
+  useEffect(() => {
+    const unsub = subscribeStaffSecretCodes((code) => {
+      if (code) setActiveSecretCode(code);
+    });
+    return () => unsub();
+  }, []);
+
+  // Email Verification State
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [verificationName, setVerificationName] = useState('');
+  const [verifiedEmails, setVerifiedEmails] = useState<Set<string>>(new Set());
+  const [pendingRegistrationAction, setPendingRegistrationAction] = useState<'faculty' | 'student' | null>(null);
+
   // Login State
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -257,29 +284,22 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
   // --------------------------------------------------------------------------
   // Faculty / Staff Registration Handler
   // --------------------------------------------------------------------------
-  const handleFacultyRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setRegErrorNotice('');
-    setRegSuccessNotice('');
-
-    if (!facultyName.trim() || !facultyEmail.trim() || !facultyUsername.trim() || !facultyPassword.trim()) {
-      setRegErrorNotice('Please fill out all required fields.');
-      return;
-    }
-
-    const validation = validateAndConsumeStaffSecretCode(facultySecretCode, facultyEmail.trim().toLowerCase());
-    if (!validation.success) {
-      setRegErrorNotice(validation.error || 'Invalid Staff Secret Code.');
-      return;
-    }
-
+  const executeFacultyRegistration = async (emailVerified?: string) => {
     setIsSubmittingReg(true);
+    setRegErrorNotice('');
 
     try {
+      const cleanEmail = (emailVerified || facultyEmail).trim().toLowerCase();
+      const validation = await validateAndConsumeStaffSecretCode(facultySecretCode, cleanEmail);
+      if (!validation.success) {
+        setRegErrorNotice(validation.error || 'Invalid Staff Secret Code.');
+        return;
+      }
+
       const newAccount: UserAccountItem = {
         id: `usr-fac-${Date.now()}`,
         name: facultyName.trim(),
-        email: facultyEmail.trim().toLowerCase(),
+        email: cleanEmail,
         username: facultyUsername.trim().toLowerCase(),
         role: facultyRole,
         phone: facultyPhone.trim() || '0240000000',
@@ -290,12 +310,14 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
         staffId: facultyStaffId.trim() || `STF/${Date.now().toString().slice(-4)}`,
         password: facultyPassword,
         lastLogin: 'Never',
-        createdAt: new Date().toISOString().split('T')[0]
+        createdAt: new Date().toISOString().split('T')[0],
+        isEmailVerified: true,
+        emailVerifiedAt: new Date().toISOString()
       };
 
       await saveUserAccount(newAccount);
 
-      setRegSuccessNotice(`Registration successful! Your ${facultyRole.toUpperCase()} account application for ${facultyName} has been submitted. It is currently pending Administrator approval.`);
+      setRegSuccessNotice(`Registration & email verification successful! Your ${facultyRole.toUpperCase()} account application for ${facultyName} has been submitted. It is currently pending Administrator approval.`);
       
       // Reset form
       setFacultyName('');
@@ -318,24 +340,42 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
     }
   };
 
-  // --------------------------------------------------------------------------
-  // Student / Parent Registration Handler
-  // --------------------------------------------------------------------------
-  const handleStudentRegister = async (e: React.FormEvent) => {
+  const handleFacultyRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setRegErrorNotice('');
     setRegSuccessNotice('');
 
-    if (!studentFullName.trim() || !parentPhoneNumber.trim() || !studentPassword.trim()) {
-      setRegErrorNotice('Please provide student full name, parent phone number, and password.');
+    if (!facultyName.trim() || !facultyEmail.trim() || !facultyUsername.trim() || !facultyPassword.trim() || !facultySecretCode.trim()) {
+      setRegErrorNotice('Please fill out all required fields, including the Staff Authorization Secret Code.');
       return;
     }
 
+    const cleanEmail = facultyEmail.trim().toLowerCase();
+
+    // Verify email ownership with a 6-digit authentication code
+    const alreadyVerified = verifiedEmails.has(cleanEmail) || await isEmailVerified(cleanEmail);
+    if (!alreadyVerified) {
+      setVerificationEmail(cleanEmail);
+      setVerificationName(facultyName.trim() || 'Staff Member');
+      setPendingRegistrationAction('faculty');
+      setShowVerificationModal(true);
+      return;
+    }
+
+    await executeFacultyRegistration(cleanEmail);
+  };
+
+  // --------------------------------------------------------------------------
+  // Student / Parent Registration Handler
+  // --------------------------------------------------------------------------
+  const executeStudentRegistration = async (emailVerified?: string) => {
     setIsSubmittingReg(true);
+    setRegErrorNotice('');
 
     try {
+      const cleanEmail = (emailVerified || studentEmail).trim().toLowerCase();
       const generatedAdmNo = studentAdmissionNo.trim() || `ADM/26/${String(Math.floor(1000 + Math.random() * 9000))}`;
-      const generatedEmail = studentEmail.trim().toLowerCase() || `${studentFullName.toLowerCase().replace(/\s+/g, '.')}${Date.now().toString().slice(-3)}@student.jipas.com`;
+      const generatedEmail = cleanEmail || `${studentFullName.toLowerCase().replace(/\s+/g, '.')}${Date.now().toString().slice(-3)}@student.jipas.com`;
       const generatedUsername = studentAdmissionNo.trim() || generatedAdmNo;
 
       const newAccount: UserAccountItem = {
@@ -354,7 +394,9 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
         parentPhone: parentPhoneNumber.trim(),
         password: studentPassword,
         lastLogin: 'Never',
-        createdAt: new Date().toISOString().split('T')[0]
+        createdAt: new Date().toISOString().split('T')[0],
+        isEmailVerified: !!cleanEmail,
+        emailVerifiedAt: cleanEmail ? new Date().toISOString() : undefined
       };
 
       await saveUserAccount(newAccount);
@@ -379,6 +421,44 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
     } finally {
       setIsSubmittingReg(false);
     }
+  };
+
+  const handleStudentRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRegErrorNotice('');
+    setRegSuccessNotice('');
+
+    if (!studentFullName.trim() || !parentPhoneNumber.trim() || !studentPassword.trim()) {
+      setRegErrorNotice('Please provide student full name, parent phone number, and password.');
+      return;
+    }
+
+    const cleanEmail = studentEmail.trim().toLowerCase();
+    if (cleanEmail) {
+      const alreadyVerified = verifiedEmails.has(cleanEmail) || await isEmailVerified(cleanEmail);
+      if (!alreadyVerified) {
+        setVerificationEmail(cleanEmail);
+        setVerificationName(studentFullName.trim());
+        setPendingRegistrationAction('student');
+        setShowVerificationModal(true);
+        return;
+      }
+    }
+
+    await executeStudentRegistration(cleanEmail);
+  };
+
+  const handleVerificationSuccess = (verifiedEmail: string) => {
+    const clean = verifiedEmail.trim().toLowerCase();
+    setVerifiedEmails(prev => new Set(prev).add(clean));
+    setShowVerificationModal(false);
+
+    if (pendingRegistrationAction === 'faculty') {
+      executeFacultyRegistration(clean);
+    } else if (pendingRegistrationAction === 'student') {
+      executeStudentRegistration(clean);
+    }
+    setPendingRegistrationAction(null);
   };
 
   return (
@@ -644,7 +724,30 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Staff Email Address *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-bold text-slate-700">Staff Email Address *</label>
+                  {facultyEmail.trim() && (
+                    verifiedEmails.has(facultyEmail.trim().toLowerCase()) ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                        <CheckCircle2 className="w-3 h-3" /> Verified
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!facultyEmail.trim()) return;
+                          setVerificationEmail(facultyEmail.trim().toLowerCase());
+                          setVerificationName(facultyName.trim() || 'Staff Member');
+                          setPendingRegistrationAction(null);
+                          setShowVerificationModal(true);
+                        }}
+                        className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+                      >
+                        Verify Email
+                      </button>
+                    )
+                  )}
+                </div>
                 <input
                   type="email"
                   required
@@ -909,7 +1012,30 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
             </div>
 
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Email Address (Optional)</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block font-bold text-slate-700">Email Address (Optional)</label>
+                {studentEmail.trim() && (
+                  verifiedEmails.has(studentEmail.trim().toLowerCase()) ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      <CheckCircle2 className="w-3 h-3" /> Verified
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!studentEmail.trim()) return;
+                        setVerificationEmail(studentEmail.trim().toLowerCase());
+                        setVerificationName(studentFullName.trim() || 'Student / Parent');
+                        setPendingRegistrationAction(null);
+                        setShowVerificationModal(true);
+                      }}
+                      className="text-[10px] font-bold text-emerald-600 hover:text-emerald-800 underline cursor-pointer"
+                    >
+                      Verify Email
+                    </button>
+                  )
+                )}
+              </div>
               <input
                 type="email"
                 value={studentEmail}
@@ -952,6 +1078,19 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
             </div>
           </form>
         </div>
+      )}
+
+      {/* Email Ownership Verification Modal */}
+      {showVerificationModal && (
+        <EmailVerificationModal
+          email={verificationEmail}
+          recipientName={verificationName}
+          onVerified={handleVerificationSuccess}
+          onClose={() => {
+            setShowVerificationModal(false);
+            setPendingRegistrationAction(null);
+          }}
+        />
       )}
 
       {/* Footer Copyright */}

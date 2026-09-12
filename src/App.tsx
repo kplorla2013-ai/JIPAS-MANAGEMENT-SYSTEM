@@ -336,12 +336,19 @@ export default function App() {
     setCurrentUser(user);
 
     // Save session to localStorage so refresh doesn't go back to login screen
+    // Force reset all module tracking keys to guarantee every login navigates to the dashboard
     try {
       localStorage.setItem('jipas_current_user', JSON.stringify(user));
       localStorage.setItem('jipas_session_id', logId);
+      localStorage.removeItem('jipas_active_page_admin');
+      localStorage.removeItem('jipas_active_page_teacher');
+      localStorage.removeItem('jipas_active_page_accountant');
+      localStorage.removeItem('jipas_active_page_student');
+      localStorage.setItem('jipas_force_dashboard', 'true');
     } catch (e) {
       console.warn('Could not store session in localStorage:', e);
     }
+    window.location.hash = 'dashboard';
   };
 
   const handleLogout = async () => {
@@ -358,9 +365,35 @@ export default function App() {
     try {
       localStorage.removeItem('jipas_current_user');
       localStorage.removeItem('jipas_session_id');
+      localStorage.removeItem('jipas_active_page_admin');
+      localStorage.removeItem('jipas_active_page_teacher');
+      localStorage.removeItem('jipas_active_page_accountant');
+      localStorage.removeItem('jipas_active_page_student');
+      localStorage.removeItem('jipas_force_dashboard');
     } catch (e) {
       console.warn('Could not clear session in localStorage:', e);
     }
+    window.location.hash = '';
+  };
+
+  const handleClearAllData = () => {
+    setStudents([]);
+    setTeachers([]);
+    setReports([]);
+    setBills([]);
+    setPayments([]);
+    setAcademicYears([]);
+    setTerms([]);
+    setDepartments([]);
+    setCourses([]);
+    setClasses([]);
+    setHouses([]);
+    setSubjects([]);
+    setCalendarEvents([]);
+    setNotifications([]);
+    setClassFeeTariffs([]);
+    setBroadcasts([]);
+    triggerToast('All pre-stored demo data has been comprehensively cleared from the system.');
   };
 
   const handleAddStudent = async (newStudent: Student) => {
@@ -938,6 +971,7 @@ export default function App() {
                 onRestoreData={handleRestoreData}
                 onLogout={handleLogout}
                 onCleanOrphaned={handleCleanOrphanedRecords}
+                onClearAllData={handleClearAllData}
               />
             )}
 

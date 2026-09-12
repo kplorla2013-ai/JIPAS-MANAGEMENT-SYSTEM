@@ -241,11 +241,34 @@ export function generateNewStaffSecretCode(adminName: string = 'System Admin'): 
   const updated = [newRecord, ...codes];
   saveStoredStaffSecretCodes(updated);
   saveStoredStaffSecretCode(generatedCode);
-  saveSettings({ staffSecretCode: generatedCode }).catch(err => console.warn('saveSettings staffSecretCode err:', err));
+  
+  // Persist to Firestore across multiple anchors so all remote devices (Device B, C...) immediately sync
+  (async () => {
+    try {
+      await setDoc(doc(db, 'staffSecretCodes', newRecord.id), sanitizeForFirestore(newRecord));
+      await setDoc(doc(db, 'systemSettings', 'staffSecretCodes'), sanitizeForFirestore({
+        activeCode: generatedCode,
+        codes: updated,
+        updatedAt: Date.now()
+      }), { merge: true });
+      await setDoc(doc(db, 'settings', 'general'), { staffSecretCode: generatedCode }, { merge: true });
+      console.log('[dbService] Generated staff secret code synced to Firestore for all devices:', generatedCode);
+    } catch (err) {
+      console.warn('[dbService] Firestore staff secret code sync error:', err);
+    }
+  })();
+
   return newRecord;
 }
 
-export function validateAndConsumeStaffSecretCode(codeStr: string, userEmail: string): { success: boolean; error?: string } {
+/**
+ * Validates and consumes a staff secret code across devices (Device A, B, C...).
+ * Queries Firestore directly so changes made on Device A are validated in real time on any device.
+ */
+export async function validateAndConsumeStaffSecretCode(
+  codeStr: string,
+  userEmail: string
+): Promise<{ success: boolean; error?: string }> {
   if (!codeStr || !codeStr.trim()) {
     return { success: false, error: 'Please enter the Staff Authorization Secret Code.' };
   }
@@ -256,13 +279,86 @@ export function validateAndConsumeStaffSecretCode(codeStr: string, userEmail: st
     return { success: true };
   }
 
-  // 2. Allow active global staff secret code configured in settings
+  // 2. Query Firestore settings/general directly to check active global code on cloud
+  try {
+    const genDoc = await getDoc(doc(db, 'settings', 'general'));
+    if (genDoc.exists()) {
+      const genData = genDoc.data() as SchoolSettings;
+      if (genData.staffSecretCode) {
+        saveStoredStaffSecretCode(genData.staffSecretCode);
+        if (cleanCode === genData.staffSecretCode.trim().toUpperCase()) {
+          return { success: true };
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[dbService] Firestore settings/general read warning:', err);
+  }
+
+  // 3. Query Firestore systemSettings/staffSecretCodes
+  try {
+    const sysDoc = await getDoc(doc(db, 'systemSettings', 'staffSecretCodes'));
+    if (sysDoc.exists()) {
+      const sysData = sysDoc.data() as { activeCode?: string; codes?: StaffSecretCodeRecord[] };
+      if (sysData.activeCode) {
+        saveStoredStaffSecretCode(sysData.activeCode);
+        if (cleanCode === sysData.activeCode.trim().toUpperCase()) {
+          return { success: true };
+        }
+      }
+      if (sysData.codes && Array.isArray(sysData.codes)) {
+        saveStoredStaffSecretCodes(sysData.codes);
+        const match = sysData.codes.find(c => c.code.trim().toUpperCase() === cleanCode);
+        if (match) {
+          if (match.used) {
+            return { success: false, error: `This secret code has already been used by ${match.usedBy || 'another user'}. Each individual code is single-use.` };
+          }
+          if (match.expiresAt && Date.now() > match.expiresAt) {
+            return { success: false, error: 'This secret code has expired. Please request a fresh code from your Administrator.' };
+          }
+          // Mark single-use code as used in Firestore and local storage
+          const updated = sysData.codes.map(c => c.id === match.id ? { ...c, used: true, usedBy: userEmail, usedAt: Date.now() } : c);
+          saveStoredStaffSecretCodes(updated);
+          await setDoc(doc(db, 'systemSettings', 'staffSecretCodes'), { codes: updated }, { merge: true });
+          return { success: true };
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[dbService] Firestore systemSettings/staffSecretCodes read warning:', err);
+  }
+
+  // 4. Query staffSecretCodes collection in Firestore
+  try {
+    const colSnap = await getDocs(collection(db, 'staffSecretCodes'));
+    for (const d of colSnap.docs) {
+      const rec = d.data() as StaffSecretCodeRecord;
+      if (rec.code && rec.code.trim().toUpperCase() === cleanCode) {
+        if (rec.used) {
+          return { success: false, error: `This secret code has already been used by ${rec.usedBy || 'another user'}. Each individual code is single-use.` };
+        }
+        if (rec.expiresAt && Date.now() > rec.expiresAt) {
+          return { success: false, error: 'This secret code has expired. Please request a fresh code from your Administrator.' };
+        }
+        // Mark as used in Firestore
+        await setDoc(doc(db, 'staffSecretCodes', d.id), {
+          used: true,
+          usedBy: userEmail,
+          usedAt: Date.now()
+        }, { merge: true });
+        return { success: true };
+      }
+    }
+  } catch (err) {
+    console.warn('[dbService] staffSecretCodes collection read warning:', err);
+  }
+
+  // 5. Check local cache fallback
   const activeStaffCode = (getStoredStaffSecretCode() || '').trim().toUpperCase();
   if (activeStaffCode && cleanCode === activeStaffCode) {
     return { success: true };
   }
 
-  // 3. Check against list of individual generated codes
   const codes = getStoredStaffSecretCodes();
   const found = codes.find(c => c.code.trim().toUpperCase() === cleanCode);
 
@@ -284,6 +380,32 @@ export function validateAndConsumeStaffSecretCode(codeStr: string, userEmail: st
   saveStoredStaffSecretCodes(updated);
 
   return { success: true };
+}
+
+/**
+ * Real-time listener for Staff Authorization Secret Code updates across all devices
+ */
+export function subscribeStaffSecretCodes(
+  callback: (activeCode: string, codes: StaffSecretCodeRecord[]) => void
+) {
+  try {
+    return onSnapshot(doc(db, 'systemSettings', 'staffSecretCodes'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data() as { activeCode?: string; codes?: StaffSecretCodeRecord[] };
+        if (data.activeCode) saveStoredStaffSecretCode(data.activeCode);
+        if (data.codes && Array.isArray(data.codes)) saveStoredStaffSecretCodes(data.codes);
+        callback(data.activeCode || getStoredStaffSecretCode(), data.codes || getStoredStaffSecretCodes());
+      } else {
+        callback(getStoredStaffSecretCode(), getStoredStaffSecretCodes());
+      }
+    }, (err) => {
+      console.warn('subscribeStaffSecretCodes listener error:', err);
+      callback(getStoredStaffSecretCode(), getStoredStaffSecretCodes());
+    });
+  } catch (e) {
+    callback(getStoredStaffSecretCode(), getStoredStaffSecretCodes());
+    return () => {};
+  }
 }
 
 export interface SchoolSettings {
@@ -371,6 +493,14 @@ export async function seedInitialDatabase() {
     console.log('[dbService] Demo data previously cleared by user, skipping auto-seed.');
     return;
   }
+  try {
+    const demoStatusSnap = await getDoc(doc(db, 'systemSettings', 'demoStatus'));
+    if (demoStatusSnap.exists() && demoStatusSnap.data().demoDataCleared) {
+      setDemoDataCleared(true);
+      console.log('[dbService] Demo data previously cleared on remote database, skipping auto-seed.');
+      return;
+    }
+  } catch {}
   try {
     const studentsSnap = await getDocs(collection(db, 'students'));
     if (studentsSnap.empty) {
@@ -638,6 +768,7 @@ export function subscribeSettings(callback: (settings: SchoolSettings) => void) 
     if (snap.exists()) {
       const data = snap.data() as SchoolSettings;
       if (data.staffSecretCode) saveStoredStaffSecretCode(data.staffSecretCode);
+      if ((data as any).demoDataCleared) setDemoDataCleared(true);
       callback(data);
     } else {
       callback(DEFAULT_SETTINGS);
@@ -1294,12 +1425,16 @@ export async function saveStaffSecretCode(code: string): Promise<void> {
   saveStoredStaffSecretCode(clean);
   const codes = getStoredStaffSecretCodes();
   const existingIdx = codes.findIndex(c => c.code.trim().toUpperCase() === clean.toUpperCase());
+  let targetRecord: StaffSecretCodeRecord;
+  let updatedCodes: StaffSecretCodeRecord[];
+  
   if (existingIdx >= 0) {
     codes[existingIdx].used = false;
     codes[existingIdx].expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
-    saveStoredStaffSecretCodes([...codes]);
+    targetRecord = codes[existingIdx];
+    updatedCodes = [...codes];
   } else {
-    const newRecord: StaffSecretCodeRecord = {
+    targetRecord = {
       id: `ssc-${Date.now()}`,
       code: clean,
       createdAt: Date.now(),
@@ -1307,9 +1442,23 @@ export async function saveStaffSecretCode(code: string): Promise<void> {
       used: false,
       createdBy: 'System Admin'
     };
-    saveStoredStaffSecretCodes([newRecord, ...codes]);
+    updatedCodes = [targetRecord, ...codes];
   }
-  await saveSettings({ staffSecretCode: clean });
+  saveStoredStaffSecretCodes(updatedCodes);
+
+  // Sync to Firestore collections & settings so Device B, C immediately have it
+  try {
+    await setDoc(doc(db, 'staffSecretCodes', targetRecord.id), sanitizeForFirestore(targetRecord), { merge: true });
+    await setDoc(doc(db, 'systemSettings', 'staffSecretCodes'), sanitizeForFirestore({
+      activeCode: clean,
+      codes: updatedCodes,
+      updatedAt: Date.now()
+    }), { merge: true });
+    await saveSettings({ staffSecretCode: clean });
+    console.log('[dbService] Staff secret code persisted to Firestore for all devices:', clean);
+  } catch (err) {
+    console.warn('[dbService] saveStaffSecretCode Firestore sync error:', err);
+  }
 }
 
 // -------------------------------------------------------------
@@ -1704,12 +1853,19 @@ export async function requestPasswordReset(email: string) {
 
 export async function checkHasDemoData(): Promise<boolean> {
   if (isDemoDataCleared()) return false;
-  const stored = getStoredAcademicYears();
-  if (stored && stored.length > 0) return true;
+  const storedStudents = getStoredStudents();
+  const storedTeachers = getStoredTeachers();
+  const storedYears = getStoredAcademicYears();
+  if (
+    (storedStudents && storedStudents.length > 0) ||
+    (storedTeachers && storedTeachers.length > 0) ||
+    (storedYears && storedYears.length > 0)
+  ) {
+    return true;
+  }
   try {
-    const docRef = doc(db, 'academicYears', 'ay-1');
-    const snap = await getDoc(docRef);
-    return snap.exists();
+    const snap = await getDocs(collection(db, 'students'));
+    return !snap.empty;
   } catch (e) {
     return false;
   }
@@ -1717,25 +1873,101 @@ export async function checkHasDemoData(): Promise<boolean> {
 
 export async function clearDemoData() {
   setDemoDataCleared(true);
+  
+  // Clear all local storage demo caches
+  saveStoredStudents([]);
+  saveStoredTeachers([]);
+  saveStoredReports([]);
+  saveStoredBills([]);
+  saveStoredPayments([]);
+  saveStoredCalendarEvents([]);
+  saveStoredNotifications([]);
   saveStoredAcademicYears([]);
   saveStoredTerms([]);
   saveStoredDepartments([]);
   saveStoredClasses([]);
   saveStoredHouses([]);
   saveStoredSubjects([]);
+  saveStoredCourses([]);
+  saveStoredClassFeeTariffs([]);
+  saveStoredFeeSubmissions([]);
+  saveStoredClassBroadcasts([]);
+
+  // Clear demo users except active admin accounts
   try {
-    const batch = writeBatch(db);
-    
-    const collectionsToClear = ['academicYears', 'terms', 'departments', 'classes', 'houses', 'subjects'];
-    
+    const users = getStoredUsers();
+    const preservedAdmins = users.filter(u => u.role === 'admin');
+    saveStoredUsers(preservedAdmins);
+  } catch {}
+
+  // Sync cleared demo status to Firestore so other devices (Device B, C...) don't re-seed
+  try {
+    await setDoc(doc(db, 'systemSettings', 'demoStatus'), { 
+      demoDataCleared: true, 
+      clearedAt: new Date().toISOString() 
+    }, { merge: true });
+    await setDoc(doc(db, 'settings', 'general'), { 
+      demoDataCleared: true 
+    }, { merge: true });
+  } catch (err) {
+    console.warn('[dbService] Demo status sync error:', err);
+  }
+
+  // Delete all demo data documents from Firestore
+  try {
+    const collectionsToClear = [
+      'students',
+      'teachers',
+      'reports',
+      'bills',
+      'transactions',
+      'academicYears',
+      'terms',
+      'departments',
+      'classes',
+      'houses',
+      'subjects',
+      'courses',
+      'events',
+      'notifications',
+      'classFeeTariffs',
+      'feeSubmissions',
+      'classReportBroadcasts'
+    ];
+
     for (const col of collectionsToClear) {
-      const snap = await getDocs(collection(db, col));
-      snap.docs.forEach(d => {
-        batch.delete(d.ref);
-      });
+      try {
+        const snap = await getDocs(collection(db, col));
+        if (!snap.empty) {
+          const batch = writeBatch(db);
+          snap.docs.forEach(d => {
+            batch.delete(d.ref);
+          });
+          await batch.commit();
+        }
+      } catch (colErr) {
+        console.warn(`[dbService] Clear collection ${col} error:`, colErr);
+      }
     }
-    
-    await batch.commit();
+
+    // Clear demo users in Firestore, preserving admin users
+    try {
+      const usersSnap = await getDocs(collection(db, 'users'));
+      const batch = writeBatch(db);
+      let toDeleteCount = 0;
+      usersSnap.docs.forEach(d => {
+        const u = d.data();
+        if (u.role !== 'admin') {
+          batch.delete(d.ref);
+          toDeleteCount++;
+        }
+      });
+      if (toDeleteCount > 0) {
+        await batch.commit();
+      }
+    } catch {}
+
+    console.log('[dbService] All pre-stored demo data has been comprehensively cleared from Firestore.');
   } catch (e) {
     if (e instanceof Error && e.message.includes('permission')) {
       handleFirestoreError(e, OperationType.DELETE, 'multiple');

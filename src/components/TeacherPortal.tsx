@@ -131,6 +131,11 @@ export type TeacherViewType = 'dashboard' | 'enter_results' | 'attendance_commen
 
 export const getInitialTeacherView = (): TeacherViewType => {
   if (typeof window !== 'undefined') {
+    if (localStorage.getItem('jipas_force_dashboard') === 'true') {
+      localStorage.removeItem('jipas_force_dashboard');
+      window.location.hash = 'teacher/dashboard';
+      return 'dashboard';
+    }
     const hash = window.location.hash.replace(/^#\/?/, '');
     if (hash.startsWith('teacher/')) {
       const viewPart = hash.replace('teacher/', '');

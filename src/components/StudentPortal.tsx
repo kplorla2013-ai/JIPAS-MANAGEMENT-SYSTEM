@@ -39,6 +39,11 @@ export type StudentTab = 'dashboard' | 'reports' | 'fees' | 'calendar' | 'profil
 
 export const getInitialStudentTab = (): StudentTab => {
   if (typeof window !== 'undefined') {
+    if (localStorage.getItem('jipas_force_dashboard') === 'true') {
+      localStorage.removeItem('jipas_force_dashboard');
+      window.location.hash = 'student/dashboard';
+      return 'dashboard';
+    }
     const hash = window.location.hash.replace(/^#\/?/, '');
     if (hash.startsWith('student/')) {
       const tabPart = hash.replace('student/', '');
