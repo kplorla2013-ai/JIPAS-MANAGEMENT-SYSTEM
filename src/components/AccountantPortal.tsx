@@ -1797,15 +1797,15 @@ export default function AccountantPortal({
                         <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200 text-center text-xs">
                           <div className="bg-white p-2 rounded-xl border border-slate-200">
                             <span className="text-[10px] text-slate-400 uppercase block font-bold">Payable</span>
-                            <span className="font-bold text-slate-800">{selectedBill.payable.toFixed(2)} CFA</span>
+                            <span className="font-bold text-slate-800">{(selectedBill.payable ?? 0).toFixed(2)} CFA</span>
                           </div>
                           <div className="bg-white p-2 rounded-xl border border-slate-200">
                             <span className="text-[10px] text-slate-400 uppercase block font-bold">Paid to Date</span>
-                            <span className="font-bold text-emerald-600">{selectedBill.paid.toFixed(2)} CFA</span>
+                            <span className="font-bold text-emerald-600">{(selectedBill.paid ?? 0).toFixed(2)} CFA</span>
                           </div>
                           <div className="bg-white p-2 rounded-xl border border-slate-200">
                             <span className="text-[10px] text-slate-400 uppercase block font-bold">Net Balance</span>
-                            <span className="font-black text-rose-600">{selectedBill.balance.toFixed(2)} CFA</span>
+                            <span className="font-black text-rose-600">{(selectedBill.balance ?? 0).toFixed(2)} CFA</span>
                           </div>
                         </div>
                       </div>
@@ -1824,11 +1824,11 @@ export default function AccountantPortal({
                               onClick={() => setAmountPaid(selectedBill.balance.toString())}
                               className="text-[10px] font-black bg-rose-100 hover:bg-rose-200 text-rose-800 px-2 py-0.5 rounded cursor-pointer transition-colors"
                             >
-                              Pay Full Balance ({selectedBill.balance.toFixed(0)} CFA)
+                              Pay Full Balance ({(selectedBill.balance ?? 0).toFixed(0)} CFA)
                             </button>
                             <button
                               type="button"
-                              onClick={() => setAmountPaid((selectedBill.balance / 2).toFixed(2))}
+                              onClick={() => setAmountPaid(((selectedBill.balance ?? 0) / 2).toFixed(2))}
                               className="text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded cursor-pointer transition-colors"
                             >
                               50%
@@ -1988,7 +1988,7 @@ export default function AccountantPortal({
                       <span className="text-slate-600 font-medium">Logged by: {summary.secretaryName}</span>
                     </div>
                     <div className="text-[11px] text-slate-500">
-                      Collections: <strong className="text-emerald-700 font-mono">GH₵ {summary.totalFeesCollected.toFixed(2)}</strong> ({summary.receiptsCount} receipts) • Expenses: <strong className="text-rose-600 font-mono">GH₵ {summary.totalExpensesIncurred.toFixed(2)}</strong> • Net Cash to Bursary: <strong className="text-slate-900 font-mono">GH₵ {summary.netCashOnHand.toFixed(2)}</strong>
+                      Collections: <strong className="text-emerald-700 font-mono">GH₵ {(summary.totalFeesCollected ?? 0).toFixed(2)}</strong> ({summary.receiptsCount} receipts) • Expenses: <strong className="text-rose-600 font-mono">GH₵ {((summary.totalExpensesIncurred ?? summary.totalExpensesLogged) ?? 0).toFixed(2)}</strong> • Net Cash to Bursary: <strong className="text-slate-900 font-mono">GH₵ {(summary.netCashOnHand ?? 0).toFixed(2)}</strong>
                     </div>
                   </div>
 
@@ -2082,11 +2082,11 @@ export default function AccountantPortal({
               <tbody className="divide-y divide-slate-100 font-medium">
                 <tr>
                   <td className="p-2.5">{activeReceipt.paidAs}</td>
-                  <td className="p-2.5 text-right font-mono font-bold text-emerald-700">{activeReceipt.paid.toFixed(2)} CFA</td>
+                  <td className="p-2.5 text-right font-mono font-bold text-emerald-700">{(activeReceipt.paid ?? 0).toFixed(2)} CFA</td>
                 </tr>
                 <tr className="bg-slate-50 font-bold">
                   <td className="p-2.5">Remaining Balance:</td>
-                  <td className="p-2.5 text-right font-mono text-rose-600">{activeReceipt.balance.toFixed(2)} CFA</td>
+                  <td className="p-2.5 text-right font-mono text-rose-600">{(activeReceipt.balance ?? 0).toFixed(2)} CFA</td>
                 </tr>
               </tbody>
             </table>

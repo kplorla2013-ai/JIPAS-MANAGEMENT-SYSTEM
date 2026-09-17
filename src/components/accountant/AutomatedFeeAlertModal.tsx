@@ -193,9 +193,9 @@ export default function AutomatedFeeAlertModal({
       .replace(/{student_name}/g, target.studentName)
       .replace(/{admission_no}/g, target.admissionNo)
       .replace(/{class_name}/g, target.className)
-      .replace(/{balance_due}/g, `${target.balance.toFixed(2)} CFA`)
-      .replace(/{total_payable}/g, `${target.payable.toFixed(2)} CFA`)
-      .replace(/{amount_paid}/g, `${target.paid.toFixed(2)} CFA`)
+      .replace(/{balance_due}/g, `${(target.balance ?? 0).toFixed(2)} CFA`)
+      .replace(/{total_payable}/g, `${(target.payable ?? 0).toFixed(2)} CFA`)
+      .replace(/{amount_paid}/g, `${(target.paid ?? 0).toFixed(2)} CFA`)
       .replace(/{status}/g, target.status)
       .replace(/{school_name}/g, 'JIPAS')
       .replace(/{due_date}/g, 'End of Term Assessment Week');
@@ -281,7 +281,7 @@ export default function AutomatedFeeAlertModal({
           onAddNotification({
             id: `notif-fee-${Date.now()}-${i}`,
             title: `🚨 Fee Outstanding Alert (${item.status})`,
-            message: `Account notice for ${item.studentName} (${item.admissionNo}): Outstanding balance of ${item.balance.toFixed(2)} CFA remains due. Total payable: ${item.payable.toFixed(2)} CFA.`,
+            message: `Account notice for ${item.studentName} (${item.admissionNo}): Outstanding balance of ${(item.balance ?? 0).toFixed(2)} CFA remains due. Total payable: ${(item.payable ?? 0).toFixed(2)} CFA.`,
             type: 'fee_alert',
             date: todayTimestamp,
             dateSent: todayTimestamp,
@@ -311,7 +311,7 @@ export default function AutomatedFeeAlertModal({
       });
 
       setDispatchStatusLog(prev => [
-        `[${i + 1}/${total}] Dispatched alert to ${item.parentName} (${item.studentName}, ${item.balance.toFixed(2)} CFA) via ${selectedChannel.toUpperCase()}`,
+        `[${i + 1}/${total}] Dispatched alert to ${item.parentName} (${item.studentName}, ${(item.balance ?? 0).toFixed(2)} CFA) via ${selectedChannel.toUpperCase()}`,
         ...prev.slice(0, 15)
       ]);
 
@@ -341,7 +341,7 @@ export default function AutomatedFeeAlertModal({
             actionRequired: true,
             followUpNotes: b.followUpNotes 
               ? `${b.followUpNotes}; Automated ${selectedChannel.toUpperCase()} alert sent on ${todayTimestamp}`
-              : `Automated ${selectedChannel.toUpperCase()} alert sent on ${todayTimestamp} (Bal: ${b.balance.toFixed(2)} CFA)`
+              : `Automated ${selectedChannel.toUpperCase()} alert sent on ${todayTimestamp} (Bal: ${(b.balance ?? 0).toFixed(2)} CFA)`
           };
         }
         return b;
@@ -418,7 +418,7 @@ export default function AutomatedFeeAlertModal({
                 Automated Alerts Dispatched Successfully!
               </h3>
               <p className="text-sm text-emerald-800 max-w-xl mx-auto">
-                Successfully broadcasted tailored fee reminder alerts to {dispatchReport.totalTargeted} parents covering <span className="font-bold font-mono text-emerald-950">{dispatchReport.totalAmountNotified.toFixed(2)} CFA</span> in outstanding arrears.
+                Successfully broadcasted tailored fee reminder alerts to {dispatchReport.totalTargeted} parents covering <span className="font-bold font-mono text-emerald-950">{(dispatchReport.totalAmountNotified ?? 0).toFixed(2)} CFA</span> in outstanding arrears.
               </p>
             </div>
 
@@ -635,7 +635,7 @@ export default function AutomatedFeeAlertModal({
                     <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1">
                       <span>Sender: <strong className="text-white">JIPAS-FEE</strong></span>
                       <span>Recipient: <strong className="text-white">{previewTarget.parentPhone}</strong></span>
-                      <span className="text-emerald-400 font-bold font-mono">Bal: {previewTarget.balance.toFixed(2)} CFA</span>
+                      <span className="text-emerald-400 font-bold font-mono">Bal: {(previewTarget.balance ?? 0).toFixed(2)} CFA</span>
                     </div>
                   </div>
                 )}
@@ -737,7 +737,7 @@ export default function AutomatedFeeAlertModal({
                     Total Selected Debt: <strong className="text-rose-600 font-mono">
                       {overdueRecords
                         .filter(r => selectedBillIds.includes(r.bill.id))
-                        .reduce((sum, r) => sum + r.balance, 0)
+                        .reduce((sum, r) => sum + (r.balance || 0), 0)
                         .toFixed(2)} CFA
                     </strong>
                   </div>
@@ -798,7 +798,7 @@ export default function AutomatedFeeAlertModal({
                               </td>
                               <td className="p-2.5 text-right font-mono">
                                 <div className="font-black text-rose-600 text-xs">
-                                  {item.balance.toFixed(2)} CFA
+                                  {(item.balance ?? 0).toFixed(2)} CFA
                                 </div>
                                 <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
                                   item.status === 'Unpaid' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'

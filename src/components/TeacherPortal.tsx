@@ -677,7 +677,7 @@ export default function TeacherPortal({
       }
 
       const totalSum = existingScores.reduce((acc, s) => acc + s.total, 0);
-      const avg = existingScores.length > 0 ? parseFloat((totalSum / existingScores.length).toFixed(1)) : total;
+      const avg = existingScores.length > 0 ? parseFloat(((totalSum / existingScores.length) || 0).toFixed(1)) : total;
 
       const fullUpdatedReport: TermReport = {
         ...rep,
@@ -949,7 +949,7 @@ export default function TeacherPortal({
     return sc.classScore + sc.examScore;
   });
   const avgClassScore = totalScoresList.length > 0 
-    ? (totalScoresList.reduce((a, b) => a + b, 0) / totalScoresList.length).toFixed(1) 
+    ? ((totalScoresList.reduce((a, b) => a + b, 0) / totalScoresList.length) || 0).toFixed(1) 
     : '0';
   const highestMark = totalScoresList.length > 0 ? Math.max(...totalScoresList) : 0;
   const passRate = totalScoresList.length > 0 

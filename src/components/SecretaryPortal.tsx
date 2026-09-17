@@ -204,7 +204,7 @@ export default function SecretaryPortal({
     onAddPayment(newPayment);
     setLastIssuedReceipt(newPayment);
     setShowReceiptModal(true);
-    showToast(`Payment of GH₵ ${amountNum.toFixed(2)} received for ${selectedStudent.name}.`);
+    showToast(`Payment of GH₵ ${(amountNum || 0).toFixed(2)} received for ${selectedStudent.name}.`);
 
     // Reset Form
     setPaymentAmount('');
@@ -300,7 +300,7 @@ export default function SecretaryPortal({
 
           <div class="amount-card">
             <div style="font-size: 11px; text-transform: uppercase; font-weight: bold; color: #64748b; margin-bottom: 2px;">Amount Received</div>
-            <div class="amount-val">GH₵ ${rec.amount.toFixed(2)}</div>
+            <div class="amount-val">GH₵ ${(rec?.amount || 0).toFixed(2)}</div>
             <div style="font-size: 11px; color: #059669; font-weight: bold; margin-top: 2px;">STATUS: VERIFIED & CLEARED</div>
           </div>
 
@@ -369,7 +369,7 @@ export default function SecretaryPortal({
               <DollarSign className="w-4 h-4 text-emerald-600" />
             </div>
             <div className="text-2xl font-black text-emerald-900 font-mono">
-              GH₵ {totalFeesCollectedToday.toFixed(2)}
+              GH₵ {(totalFeesCollectedToday || 0).toFixed(2)}
             </div>
             <span className="text-[10px] text-emerald-700 font-semibold mt-1">
               {todaySecretaryPayments.length} student payments received
@@ -382,7 +382,7 @@ export default function SecretaryPortal({
               <Receipt className="w-4 h-4 text-rose-600" />
             </div>
             <div className="text-2xl font-black text-rose-900 font-mono">
-              GH₵ {totalExpensesLoggedToday.toFixed(2)}
+              GH₵ {(totalExpensesLoggedToday || 0).toFixed(2)}
             </div>
             <span className="text-[10px] text-rose-700 font-semibold mt-1">
               {todaySecretaryExpenses.length} petty cash outlays
@@ -395,7 +395,7 @@ export default function SecretaryPortal({
               <Wallet className="w-4 h-4 text-blue-600" />
             </div>
             <div className={`text-2xl font-black font-mono ${netCashOnHand >= 0 ? 'text-blue-900' : 'text-rose-900'}`}>
-              GH₵ {netCashOnHand.toFixed(2)}
+              GH₵ {(netCashOnHand || 0).toFixed(2)}
             </div>
             <span className="text-[10px] text-blue-700 font-semibold mt-1">
               Ready for Bursar handover
@@ -557,19 +557,19 @@ export default function SecretaryPortal({
                       <div className="p-2 bg-white rounded-xl">
                         <span className="text-[9px] uppercase font-bold text-slate-400 block">Total Billed</span>
                         <span className="text-xs font-black text-slate-900 font-mono">
-                          GH₵ {studentFinancials.totalBilled.toFixed(2)}
+                          GH₵ {(studentFinancials.totalBilled || 0).toFixed(2)}
                         </span>
                       </div>
                       <div className="p-2 bg-white rounded-xl">
                         <span className="text-[9px] uppercase font-bold text-emerald-600 block">Total Paid</span>
                         <span className="text-xs font-black text-emerald-700 font-mono">
-                          GH₵ {studentFinancials.totalPaid.toFixed(2)}
+                          GH₵ {(studentFinancials.totalPaid || 0).toFixed(2)}
                         </span>
                       </div>
                       <div className="p-2 bg-white rounded-xl">
                         <span className="text-[9px] uppercase font-bold text-rose-600 block">Current Arrears</span>
                         <span className="text-xs font-black text-rose-700 font-mono">
-                          GH₵ {studentFinancials.outstandingArrears.toFixed(2)}
+                          GH₵ {(studentFinancials.outstandingArrears || 0).toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -597,7 +597,7 @@ export default function SecretaryPortal({
                             onClick={() => setPaymentAmount(studentFinancials.outstandingArrears.toString())}
                             className="text-[10px] font-bold text-blue-600 hover:underline mt-1 block"
                           >
-                            Fill Full Arrears (GH₵ {studentFinancials.outstandingArrears.toFixed(2)})
+                            Fill Full Arrears (GH₵ {(studentFinancials.outstandingArrears || 0).toFixed(2)})
                           </button>
                         )}
                       </div>
@@ -692,7 +692,7 @@ export default function SecretaryPortal({
                   </h3>
                 </div>
                 <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                  GH₵ {totalFeesCollectedToday.toFixed(2)}
+                  GH₵ {(totalFeesCollectedToday || 0).toFixed(2)}
                 </span>
               </div>
 
@@ -714,7 +714,7 @@ export default function SecretaryPortal({
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-black text-emerald-700 font-mono">
-                          GH₵ {p.amount.toFixed(2)}
+                          GH₵ {(p.amount || 0).toFixed(2)}
                         </span>
                         <button
                           onClick={() => handlePrintReceipt(p)}
@@ -768,15 +768,15 @@ export default function SecretaryPortal({
                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2 text-xs">
                   <div className="flex justify-between font-medium">
                     <span className="text-slate-600">Total Student Fees Collected:</span>
-                    <span className="font-bold text-emerald-700 font-mono">+ GH₵ {totalFeesCollectedToday.toFixed(2)}</span>
+                    <span className="font-bold text-emerald-700 font-mono">+ GH₵ {(totalFeesCollectedToday || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between font-medium">
                     <span className="text-slate-600">Total Operational Expenses Logged:</span>
-                    <span className="font-bold text-rose-700 font-mono">- GH₵ {totalExpensesLoggedToday.toFixed(2)}</span>
+                    <span className="font-bold text-rose-700 font-mono">- GH₵ {(totalExpensesLoggedToday || 0).toFixed(2)}</span>
                   </div>
                   <div className="pt-2 border-t border-slate-200 flex justify-between font-black text-sm">
                     <span className="text-slate-900">Net Physical Cash to Hand Over:</span>
-                    <span className="text-blue-700 font-mono">GH₵ {netCashOnHand.toFixed(2)}</span>
+                    <span className="text-blue-700 font-mono">GH₵ {(netCashOnHand || 0).toFixed(2)}</span>
                   </div>
                 </div>
 
@@ -835,15 +835,15 @@ export default function SecretaryPortal({
                       <div className="grid grid-cols-3 gap-2 text-[11px] font-medium pt-1">
                         <div>
                           <span className="text-slate-400 block text-[9px] uppercase">Fees</span>
-                          <span className="font-bold text-emerald-700">GH₵ {s.totalFeesCollected.toFixed(2)}</span>
+                          <span className="font-bold text-emerald-700">GH₵ {(s.totalFeesCollected || 0).toFixed(2)}</span>
                         </div>
                         <div>
                           <span className="text-slate-400 block text-[9px] uppercase">Expenses</span>
-                          <span className="font-bold text-rose-700">GH₵ {s.totalExpensesLogged.toFixed(2)}</span>
+                          <span className="font-bold text-rose-700">GH₵ {(s.totalExpensesLogged || 0).toFixed(2)}</span>
                         </div>
                         <div>
                           <span className="text-slate-400 block text-[9px] uppercase">Net Cash</span>
-                          <span className="font-bold text-blue-700">GH₵ {s.netCashOnHand.toFixed(2)}</span>
+                          <span className="font-bold text-blue-700">GH₵ {(s.netCashOnHand || 0).toFixed(2)}</span>
                         </div>
                       </div>
                       {s.notes && (
@@ -897,7 +897,7 @@ export default function SecretaryPortal({
                       <td className="py-3 px-4 text-slate-600">{st.currentClass}</td>
                       <td className="py-3 px-4 text-slate-600 font-mono">{st.parentPhone || 'N/A'}</td>
                       <td className={`py-3 px-4 text-right font-mono font-black ${arrears > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                        GH₵ {arrears.toFixed(2)}
+                        GH₵ {(arrears || 0).toFixed(2)}
                       </td>
                       <td className="py-3 px-4 text-right">
                         <button
@@ -944,7 +944,7 @@ export default function SecretaryPortal({
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Amount Paid:</span>
-                <span className="font-black text-emerald-700 font-mono text-sm">GH₵ {lastIssuedReceipt.amount.toFixed(2)}</span>
+                <span className="font-black text-emerald-700 font-mono text-sm">GH₵ {(lastIssuedReceipt.amount || 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Payment Method:</span>
