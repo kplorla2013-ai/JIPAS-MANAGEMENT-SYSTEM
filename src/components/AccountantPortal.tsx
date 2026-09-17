@@ -19,7 +19,8 @@ import {
   saveStoredSecretarySummaries,
   getStoredDepartments,
   getStoredClasses,
-  getStoredExpenses
+  getStoredExpenses,
+  saveStoredExpenses
 } from '../services/storageService';
 import { 
   Calculator, CreditCard, DollarSign, Plus, FileText, 
