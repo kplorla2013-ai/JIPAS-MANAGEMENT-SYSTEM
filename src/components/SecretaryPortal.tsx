@@ -19,6 +19,7 @@ import {
 import JIPASLogo from './common/JIPASLogo';
 import QuickActionSpeedDial from './common/QuickActionSpeedDial';
 import ExpenseManager from './common/ExpenseManager';
+import BankDepositManager from './common/BankDepositManager';
 import { 
   DollarSign, 
   Receipt, 
@@ -452,6 +453,18 @@ export default function SecretaryPortal({
         >
           <BookOpen className="w-4 h-4" />
           <span>Student Records & Arrears</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('bank_deposits')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+            activeTab === 'bank_deposits'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <Building className="w-4 h-4 text-emerald-300" />
+          <span>Bank Deposits & Slips</span>
         </button>
       </div>
 
@@ -917,6 +930,13 @@ export default function SecretaryPortal({
             </table>
           </div>
         </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* TAB 5: BANK DEPOSITS                                          */}
+      {/* ------------------------------------------------------------- */}
+      {activeTab === 'bank_deposits' && (
+        <BankDepositManager userRole="secretary" userName={secretary.name} />
       )}
 
       {/* ------------------------------------------------------------- */}

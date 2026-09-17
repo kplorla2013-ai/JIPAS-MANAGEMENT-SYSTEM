@@ -50,7 +50,8 @@ export async function forceSyncCollections() {
       { name: 'users', save: saveStoredUsers },
       { name: 'classFeeTariffs', save: saveStoredClassFeeTariffs },
       { name: 'classReportBroadcasts', save: saveStoredClassBroadcasts },
-      { name: 'teacherAttendance', save: saveStoredTeacherAttendance }
+      { name: 'teacherAttendance', save: saveStoredTeacherAttendance },
+      { name: 'bankDeposits', save: saveStoredBankDeposits }
     ];
 
     for (const col of collectionsToSync) {
@@ -208,7 +209,9 @@ import {
   DEFAULT_THEME_PALETTE,
   getStoredThemePalette,
   saveStoredThemePalette,
-  applyThemePaletteToDom
+  applyThemePaletteToDom,
+  getStoredBankDeposits,
+  saveStoredBankDeposits
 } from './storageService';
 
 export { 

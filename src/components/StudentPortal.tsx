@@ -7,13 +7,13 @@ import SchoolCalendarView from './SchoolCalendarView';
 import JIPASLogo from './common/JIPASLogo';
 import LanguageSwitcher from './common/LanguageSwitcher';
 import { subscribePaymentSettings, subscribeFeeSubmissions, saveFeeSubmission, saveNotification, subscribeClassBroadcasts } from '../services/dbService';
-import { INITIAL_PAYMENT_SETTINGS } from '../services/storageService';
+import { INITIAL_PAYMENT_SETTINGS, getStoredStudents, saveStoredStudents, getStoredUsers, saveStoredUsers } from '../services/storageService';
 import { 
   Award, CreditCard, Calendar, User, Printer, CheckCircle, Clock, BookOpen, 
   AlertCircle, FileText, CheckCircle2, TrendingUp, ShieldCheck, Download,
   ExternalLink, Eye, ChevronRight, Phone, Home, Sparkles, QrCode, Bell,
   Send, Copy, Check, Building2, Smartphone, Plus, HelpCircle, X, Lock, ShieldAlert,
-  LayoutDashboard
+  LayoutDashboard, AlertTriangle, Key
 } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 
@@ -115,6 +115,41 @@ export default function StudentPortal({
   const [selectedReceipt, setSelectedReceipt] = useState<PaymentRecord | null>(null);
   const [showPrintStatementModal, setShowPrintStatementModal] = useState<boolean>(false);
   const [showDigitalIdModal, setShowDigitalIdModal] = useState<boolean>(false);
+
+  // Security Password States
+  const [secPasswordInput, setSecPasswordInput] = useState('');
+  const [secConfirmPasswordInput, setSecConfirmPasswordInput] = useState('');
+  const [passwordToast, setPasswordToast] = useState<string | null>(null);
+
+  const handleSaveStudentPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!secPasswordInput || secPasswordInput.length < 4) {
+      alert('Password must be at least 4 characters long.');
+      return;
+    }
+    if (secPasswordInput !== secConfirmPasswordInput) {
+      alert('Passwords do not match. Please re-enter.');
+      return;
+    }
+
+    try {
+      const storedStudents = getStoredStudents();
+      const updatedStudents = storedStudents.map(s => s.id === student.id || s.admissionNo === student.admissionNo ? { ...s, password: secPasswordInput } : s);
+      saveStoredStudents(updatedStudents);
+
+      const storedUsers = getStoredUsers();
+      const updatedUsers = storedUsers.map(u => (u.admissionNo === student.admissionNo || u.id === student.id) ? { ...u, password: secPasswordInput } : u);
+      saveStoredUsers(updatedUsers);
+
+      setPasswordToast('🔒 Account Password updated successfully! Parents and students can now log in using this password.');
+      setTimeout(() => setPasswordToast(null), 4000);
+      setSecPasswordInput('');
+      setSecConfirmPasswordInput('');
+    } catch (err) {
+      console.error('Failed to save student password:', err);
+      alert('Failed to save password. Please try again.');
+    }
+  };
 
   // Fee Payment Submission states
   const [paymentSettings, setPaymentSettings] = useState<PaymentSettingsConfig>(INITIAL_PAYMENT_SETTINGS);
@@ -348,13 +383,34 @@ export default function StudentPortal({
 
         {/* Quick Top Stats */}
         <div className="flex flex-wrap gap-2.5 z-10 w-full md:w-auto justify-start md:justify-end">
+          {balanceDue > 0 && (
+            <button
+              id="student-arrears-red-icon"
+              onClick={() => {
+                setActiveTab('fees');
+                setShowSubmitModal(true);
+              }}
+              className="bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-black px-3.5 py-2 rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-rose-600/30 border border-rose-400 animate-pulse cursor-pointer transition-all"
+              title="Click to pay fee arrears"
+            >
+              <AlertTriangle className="w-4 h-4 text-amber-300 animate-bounce shrink-0" />
+              <div className="text-left leading-tight">
+                <span className="block text-[9px] uppercase tracking-wider text-rose-200 font-black">Fee Arrears</span>
+                <span className="text-xs sm:text-sm font-black font-mono">{balanceDue.toFixed(2)} CFA</span>
+              </div>
+              <span className="bg-white text-rose-800 text-[10px] font-black px-2 py-0.5 rounded-lg shadow-xs ml-1 hover:bg-rose-50">
+                Pay Now →
+              </span>
+            </button>
+          )}
+
           <div className="bg-white/10 backdrop-blur-md border border-white/20 px-4 py-2 rounded-xl text-center min-w-[90px]">
             <span className="block text-[10px] text-emerald-200 uppercase font-bold tracking-wider">Attendance</span>
             <span className="text-base sm:text-lg font-black">{attendanceRate}%</span>
           </div>
           <div className="bg-white/10 backdrop-blur-md border border-white/20 px-4 py-2 rounded-xl text-center min-w-[90px]">
             <span className="block text-[10px] text-emerald-200 uppercase font-bold tracking-wider">Fees Clear</span>
-            <span className={`text-base sm:text-lg font-black ${clearancePercent === 100 ? 'text-emerald-300' : 'text-amber-300'}`}>
+            <span className={`text-base sm:text-lg font-black ${clearancePercent === 100 ? 'text-emerald-300' : 'text-rose-300'}`}>
               {clearancePercent}%
             </span>
           </div>
@@ -366,6 +422,47 @@ export default function StudentPortal({
           </button>
         </div>
       </div>
+
+      {/* Red Arrears Banner Alert if Arrears Exist */}
+      {balanceDue > 0 && (
+        <div 
+          onClick={() => {
+            setActiveTab('fees');
+            setShowSubmitModal(true);
+          }}
+          className="p-4 bg-gradient-to-r from-rose-50 via-rose-100/60 to-red-50 border-2 border-rose-500 hover:border-rose-600 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md cursor-pointer group transition-all"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-rose-600 text-white rounded-2xl shadow-sm shrink-0 group-hover:scale-105 transition-transform">
+              <AlertTriangle className="w-6 h-6 text-white animate-bounce" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="bg-rose-600 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded-md">
+                  Unpaid Fee Arrears Alert
+                </span>
+                <span className="text-xs font-mono font-black text-rose-700">
+                  {balanceDue.toFixed(2)} CFA
+                </span>
+              </div>
+              <p className="text-xs text-rose-950 font-bold mt-1">
+                Notice: Your ward has an outstanding fee balance of <span className="underline font-mono font-black text-rose-700">{balanceDue.toFixed(2)} CFA</span>. Click here to open fee payment and submit your transaction proof.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveTab('fees');
+              setShowSubmitModal(true);
+            }}
+            className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-xl shadow-md flex items-center gap-1.5 shrink-0 cursor-pointer"
+          >
+            <CreditCard className="w-4 h-4" />
+            <span>Pay Fee Arrears Now</span>
+          </button>
+        </div>
+      )}
 
       {/* Portal Navigation Big Thumbnails */}
       <div className="bg-white/80 backdrop-blur-sm p-4 sm:p-5 rounded-3xl shadow-sm border border-slate-200/90 space-y-3">
@@ -1436,6 +1533,68 @@ export default function StudentPortal({
                   <Phone className="w-3.5 h-3.5" /> {student.parentPhone}
                 </span>
               </div>
+            </div>
+
+            {/* Parent & Student Password Security Setting Card */}
+            <div className="mt-6 p-5 bg-gradient-to-br from-indigo-50/80 via-purple-50/30 to-slate-50 rounded-2xl border border-indigo-200/80 space-y-4">
+              <div className="flex items-center gap-2 border-b border-indigo-100 pb-3">
+                <div className="p-2 bg-indigo-600 text-white rounded-xl shadow-xs">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-slate-900 text-sm">Parent & Ward Security Password Manager</h4>
+                  <p className="text-[11px] text-slate-500">Set or update a secure password for logging into this Student ID portal account</p>
+                </div>
+              </div>
+
+              {passwordToast && (
+                <div className="p-3 bg-emerald-100 text-emerald-900 text-xs font-bold rounded-xl flex items-center gap-2 animate-fade-in">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{passwordToast}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSaveStudentPassword} className="space-y-3 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">New Account Password *</label>
+                    <input
+                      type="password"
+                      required
+                      minLength={4}
+                      value={secPasswordInput}
+                      onChange={(e) => setSecPasswordInput(e.target.value)}
+                      placeholder="Enter new account password..."
+                      className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Confirm New Password *</label>
+                    <input
+                      type="password"
+                      required
+                      minLength={4}
+                      value={secConfirmPasswordInput}
+                      onChange={(e) => setSecConfirmPasswordInput(e.target.value)}
+                      placeholder="Re-enter password to confirm..."
+                      className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[10px] text-slate-500 font-medium">
+                    This password will protect logging in with Student ID <strong className="font-mono text-indigo-700">{student.admissionNo}</strong>.
+                  </span>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black rounded-xl text-xs shadow-md flex items-center gap-2 cursor-pointer transition-all shrink-0"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-emerald-300" />
+                    <span>Save Password</span>
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

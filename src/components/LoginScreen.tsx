@@ -708,22 +708,6 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
             </div>
           )}
 
-          {/* Parents & Guardians Login Notice */}
-          <div className="mb-4 p-3 bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border border-emerald-200/90 rounded-2xl flex items-start gap-2.5 text-xs text-slate-700 shadow-2xs">
-            <div className="p-2 bg-emerald-600 text-white rounded-xl shrink-0 mt-0.5 shadow-xs">
-              <GraduationCap className="w-4 h-4" />
-            </div>
-            <div className="leading-snug">
-              <div className="font-extrabold text-emerald-950 flex items-center gap-1.5">
-                <span>Parents & Guardians Portal Access</span>
-                <span className="text-[9px] bg-emerald-200 text-emerald-900 font-black px-1.5 py-0.2 rounded-md uppercase">Notice</span>
-              </div>
-              <p className="text-[11px] text-slate-600 font-medium mt-0.5">
-                Parents should use their ward's <strong>Student ID</strong> (Admission Number, e.g. <span className="font-mono font-bold text-emerald-800">ADM/26/0001</span>) as the identifier to log in and access their ward's academic records, reports, attendance, and fee statements.
-              </p>
-            </div>
-          </div>
-
           <form onSubmit={handleUnifiedSubmit} className="space-y-4">
             {/* User Identifier Field */}
             <div className="space-y-1">
@@ -918,19 +902,6 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
                 </div>
                 <div className="text-xs font-bold text-slate-800 group-hover:text-white truncate">Parent & Student</div>
                 <div className="text-[9px] text-slate-500 group-hover:text-slate-300">Ward Grades & Fees</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleDemoLogin('admin')}
-                className="p-2.5 bg-white hover:bg-slate-900 hover:text-white border border-slate-200 hover:border-slate-800 rounded-xl text-left transition-all cursor-pointer shadow-xs group flex flex-col justify-between"
-              >
-                <div className="flex items-center justify-between w-full">
-                  <span className="text-[10px] font-extrabold uppercase text-rose-600 group-hover:text-rose-300">Admin</span>
-                  <ShieldCheck className="w-3.5 h-3.5 text-rose-500" />
-                </div>
-                <div className="text-xs font-bold text-slate-800 group-hover:text-white truncate">Administrator</div>
-                <div className="text-[9px] text-slate-500 group-hover:text-slate-300">Audits & Governance</div>
               </button>
             </div>
           </div>

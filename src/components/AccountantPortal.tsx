@@ -11,6 +11,8 @@ import AutomatedFeeAlertModal from './accountant/AutomatedFeeAlertModal';
 import GlobalSearchHeader from './common/GlobalSearchHeader';
 import PayrollManager from './common/PayrollManager';
 import ExpenseManager from './common/ExpenseManager';
+import BankDepositManager from './common/BankDepositManager';
+import FinancialDataImporter from './common/FinancialDataImporter';
 import { runDailyFeeAudit, isDailyAuditDueToday, getStoredAuditSummary, getFormattedTimestamp } from '../services/feeAuditService';
 import { 
   getStoredSecretarySummaries, 
@@ -23,7 +25,7 @@ import {
   Calculator, CreditCard, DollarSign, Plus, FileText, 
   Search, Printer, Download, CheckCircle2, ArrowDownRight, Calendar, User, Check, Settings, AlertTriangle, Send,
   RotateCw, Filter, Phone, MessageSquare, Clock, Sparkles, Wallet, Receipt, Layers, ShieldCheck,
-  Users, BookOpen, ChevronRight, CheckCircle, RefreshCw, Building2, UserCheck
+  Users, BookOpen, ChevronRight, CheckCircle, RefreshCw, Building2, UserCheck, Building
 } from 'lucide-react';
 
 interface AccountantPortalProps {
@@ -45,10 +47,11 @@ export const VALID_ACCOUNTANT_TABS = new Set<string>([
   'overdue-alerts',
   'expenses',
   'secretary-records',
-  'payroll'
+  'payroll',
+  'bank-deposits'
 ]);
 
-export type AccountantTab = 'collections' | 'bills' | 'new-payment' | 'fee-settings' | 'overdue-alerts' | 'expenses' | 'secretary-records' | 'payroll';
+export type AccountantTab = 'collections' | 'bills' | 'new-payment' | 'fee-settings' | 'overdue-alerts' | 'expenses' | 'secretary-records' | 'payroll' | 'bank-deposits';
 
 export const getInitialAccountantTab = (): AccountantTab => {
   if (typeof window !== 'undefined') {
@@ -202,9 +205,13 @@ export default function AccountantPortal({
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Mobile money' | 'Bank Transfer'>('Mobile money');
   const [paidAs, setPaidAs] = useState('Tuition Fee (Full Term Payment)');
 
-  // Filter states
+  // Filter & Sorting states
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMethod, setFilterMethod] = useState('All');
+  const [filterDepartment, setFilterDepartment] = useState('All');
+  const [filterClass, setFilterClass] = useState('All');
+  const [sortBy, setSortBy] = useState<'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc' | 'name_asc' | 'class_asc' | 'receipt_asc'>('date_desc');
+  const [isImporterOpen, setIsImporterOpen] = useState(false);
   const [billsFilter, setBillsFilter] = useState<'all' | 'action-required' | 'unpaid' | 'paid'>('all');
   const [billsSearchQuery, setBillsSearchQuery] = useState('');
   const [activeReceipt, setActiveReceipt] = useState<PaymentRecord | null>(null);
@@ -391,13 +398,75 @@ export default function AccountantPortal({
     setActiveTab('collections');
   };
 
-  const filteredPayments = payments.filter(p => {
-    const matchSearch = p.studentName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      p.admissionNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.receiptNo.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchMethod = filterMethod === 'All' || p.method === filterMethod;
-    return matchSearch && matchMethod;
-  });
+  // Available unique departments & classes for collections filter
+  const collectionsAvailableDepartments = useMemo(() => {
+    const depts = new Set<string>();
+    depts.add('All');
+    students.forEach(s => {
+      if (s.department) depts.add(s.department);
+    });
+    payments.forEach(p => {
+      if (p.department) depts.add(p.department);
+    });
+    return Array.from(depts);
+  }, [students, payments]);
+
+  const collectionsAvailableClasses = useMemo(() => {
+    const cls = new Set<string>();
+    cls.add('All');
+    students.forEach(s => {
+      if (s.className) cls.add(s.className);
+    });
+    payments.forEach(p => {
+      if (p.className) cls.add(p.className);
+    });
+    return Array.from(cls);
+  }, [students, payments]);
+
+  // Enhanced Filtered and Sorted Payments
+  const filteredPayments = useMemo(() => {
+    return payments.filter(p => {
+      const matchSearch = 
+        p.studentName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        p.admissionNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.receiptNo.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchMethod = filterMethod === 'All' || p.method === filterMethod;
+
+      // Department matching
+      const student = students.find(s => s.id === p.studentId || s.admissionNo === p.admissionNo);
+      const studentDept = p.department || student?.department || 'General';
+      const matchDept = filterDepartment === 'All' || studentDept === filterDepartment;
+
+      // Class matching
+      const matchClass = filterClass === 'All' || p.className === filterClass;
+
+      return matchSearch && matchMethod && matchDept && matchClass;
+    }).sort((a, b) => {
+      if (sortBy === 'date_desc') {
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      }
+      if (sortBy === 'date_asc') {
+        return new Date(a.date).getTime() - new Date(b.date).getTime();
+      }
+      if (sortBy === 'amount_desc') {
+        return b.paid - a.paid;
+      }
+      if (sortBy === 'amount_asc') {
+        return a.paid - b.paid;
+      }
+      if (sortBy === 'name_asc') {
+        return a.studentName.localeCompare(b.studentName);
+      }
+      if (sortBy === 'class_asc') {
+        return a.className.localeCompare(b.className);
+      }
+      if (sortBy === 'receipt_asc') {
+        return a.receiptNo.localeCompare(b.receiptNo);
+      }
+      return 0;
+    });
+  }, [payments, students, searchQuery, filterMethod, filterDepartment, filterClass, sortBy]);
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 items-start relative">
@@ -469,6 +538,13 @@ export default function AccountantPortal({
           </div>
 
           <div className="relative z-10 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab('bank-deposits')}
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-2xl text-xs font-bold shadow-lg shadow-indigo-900/30 transition-all cursor-pointer"
+            >
+              <Building className="w-4 h-4 text-emerald-300" /> Bank Deposits
+            </button>
             <button
               type="button"
               onClick={() => setActiveTab('expenses')}
@@ -976,34 +1052,97 @@ export default function AccountantPortal({
       {/* 1. COLLECTIONS LOG TAB */}
       {activeTab === 'collections' && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 pb-4">
+          <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b border-slate-100 pb-4">
             <div>
-              <h3 className="text-lg font-bold text-slate-900">Payment Collections Log</h3>
-              <p className="text-xs text-slate-500">Real-time repository of all issued receipts and collected funds.</p>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-bold text-slate-900">Payment Collections Log</h3>
+                <span className="bg-cyan-100 text-cyan-800 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">
+                  {filteredPayments.length} Receipts
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">Repository of all issued receipts and collected tuition/fee payments.</p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-              <div className="relative flex-1 sm:w-64">
+            <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto">
+              {/* Import Button */}
+              <button
+                type="button"
+                onClick={() => setIsImporterOpen(true)}
+                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black rounded-xl text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer shrink-0"
+              >
+                <Download className="w-3.5 h-3.5 rotate-180" />
+                <span>Import Financial Records</span>
+              </button>
+
+              {/* Search */}
+              <div className="relative min-w-[180px] flex-1 sm:flex-none">
                 <input
                   type="text"
                   placeholder="Search receipt, student or ID..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-xl text-xs bg-white focus:ring-1 focus:ring-cyan-500"
+                  className="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-xl text-xs bg-white focus:ring-1 focus:ring-cyan-500"
                 />
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
               </div>
 
+              {/* Department Filter */}
+              <div className="flex items-center gap-1">
+                <label className="text-[10px] font-extrabold uppercase text-slate-400 shrink-0">Dept:</label>
+                <select
+                  value={filterDepartment}
+                  onChange={(e) => setFilterDepartment(e.target.value)}
+                  className="px-2.5 py-2 border border-slate-300 rounded-xl text-xs bg-white font-bold text-slate-700"
+                >
+                  {collectionsAvailableDepartments.map(d => (
+                    <option key={d} value={d}>{d === 'All' ? 'All Depts' : d}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Class Filter */}
+              <div className="flex items-center gap-1">
+                <label className="text-[10px] font-extrabold uppercase text-slate-400 shrink-0">Class:</label>
+                <select
+                  value={filterClass}
+                  onChange={(e) => setFilterClass(e.target.value)}
+                  className="px-2.5 py-2 border border-slate-300 rounded-xl text-xs bg-white font-bold text-slate-700"
+                >
+                  {collectionsAvailableClasses.map(c => (
+                    <option key={c} value={c}>{c === 'All' ? 'All Classes' : c}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Payment Method Filter */}
               <select
                 value={filterMethod}
                 onChange={(e) => setFilterMethod(e.target.value)}
-                className="px-3 py-2 border border-slate-300 rounded-xl text-xs bg-white font-bold text-slate-700"
+                className="px-2.5 py-2 border border-slate-300 rounded-xl text-xs bg-white font-bold text-slate-700"
               >
                 <option value="All">All Methods</option>
                 <option value="Mobile money">Mobile money</option>
                 <option value="Cash">Cash</option>
                 <option value="Bank Transfer">Bank Transfer</option>
               </select>
+
+              {/* Sort By Dropdown */}
+              <div className="flex items-center gap-1">
+                <label className="text-[10px] font-extrabold uppercase text-slate-400 shrink-0">Sort:</label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="px-2.5 py-2 border border-indigo-200 bg-indigo-50/60 rounded-xl text-xs font-black text-indigo-900 focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value="date_desc">Date (Newest First)</option>
+                  <option value="date_asc">Date (Oldest First)</option>
+                  <option value="amount_desc">Amount (High to Low)</option>
+                  <option value="amount_asc">Amount (Low to High)</option>
+                  <option value="name_asc">Student Name (A-Z)</option>
+                  <option value="class_asc">Class Name (A-Z)</option>
+                  <option value="receipt_asc">Receipt No</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -1016,6 +1155,7 @@ export default function AccountantPortal({
                   <th className="p-3">Date / Time</th>
                   <th className="p-3">Student Name</th>
                   <th className="p-3">Admission No</th>
+                  <th className="p-3">Department</th>
                   <th className="p-3">Class</th>
                   <th className="p-3">Paid As</th>
                   <th className="p-3">Method</th>
@@ -1025,38 +1165,52 @@ export default function AccountantPortal({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
-                {filteredPayments.map((p, idx) => (
-                  <tr key={p.id} className="hover:bg-slate-50">
-                    <td className="p-3 text-slate-400 font-mono">{idx + 1}</td>
-                    <td className="p-3 font-mono font-bold text-blue-600">{p.receiptNo}</td>
-                    <td className="p-3 text-slate-500 font-mono">{p.date}</td>
-                    <td className="p-3 font-bold text-slate-900">{p.studentName}</td>
-                    <td className="p-3 font-mono text-indigo-700 font-bold">{p.admissionNo}</td>
-                    <td className="p-3 text-slate-700">{p.className}</td>
-                    <td className="p-3 text-slate-600 truncate max-w-[160px]">{p.paidAs}</td>
-                    <td className="p-3">
-                      <span className="bg-cyan-100 text-cyan-800 px-2 py-0.5 rounded text-[10px] font-bold">
-                        {p.method}
-                      </span>
-                    </td>
-                    <td className="p-3 text-right font-mono font-black text-emerald-700 text-sm">
-                      {p.paid.toFixed(2)} CFA
-                    </td>
-                    <td className="p-3">
-                      <span className="bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">
-                        {p.status}
-                      </span>
-                    </td>
-                    <td className="p-3 text-center">
-                      <button
-                        onClick={() => setActiveReceipt(p)}
-                        className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1 mx-auto"
-                      >
-                        <Printer className="w-3 h-3" /> View
-                      </button>
+                {filteredPayments.length === 0 ? (
+                  <tr>
+                    <td colSpan={12} className="p-8 text-center text-slate-400 font-medium">
+                      No payment collection records found matching your selected department, class, or search filters.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredPayments.map((p, idx) => {
+                    const student = students.find(s => s.id === p.studentId || s.admissionNo === p.admissionNo);
+                    const deptDisplay = p.department || student?.department || 'General';
+
+                    return (
+                      <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-3 text-slate-400 font-mono">{idx + 1}</td>
+                        <td className="p-3 font-mono font-bold text-blue-600">{p.receiptNo}</td>
+                        <td className="p-3 text-slate-500 font-mono">{p.date}</td>
+                        <td className="p-3 font-bold text-slate-900">{p.studentName}</td>
+                        <td className="p-3 font-mono text-indigo-700 font-bold">{p.admissionNo}</td>
+                        <td className="p-3 font-semibold text-slate-600">{deptDisplay}</td>
+                        <td className="p-3 font-bold text-slate-800">{p.className}</td>
+                        <td className="p-3 text-slate-600 truncate max-w-[160px]">{p.paidAs}</td>
+                        <td className="p-3">
+                          <span className="bg-cyan-100 text-cyan-800 px-2 py-0.5 rounded text-[10px] font-bold">
+                            {p.method}
+                          </span>
+                        </td>
+                        <td className="p-3 text-right font-mono font-black text-emerald-700 text-sm">
+                          {p.paid.toFixed(2)} CFA
+                        </td>
+                        <td className="p-3">
+                          <span className="bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                            {p.status}
+                          </span>
+                        </td>
+                        <td className="p-3 text-center">
+                          <button
+                            onClick={() => setActiveReceipt(p)}
+                            className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1 mx-auto cursor-pointer"
+                          >
+                            <Printer className="w-3 h-3" /> View
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -2027,6 +2181,14 @@ export default function AccountantPortal({
           onAddNotification={onAddNotification}
         />
       )}
+
+      {/* 8. BANK DEPOSITS & SLIPS TAB */}
+      {activeTab === 'bank-deposits' && (
+        <BankDepositManager
+          userRole={currentUser?.role === 'sub_accountant' ? 'sub_accountant' : 'accountant'}
+          userName={currentUser?.name || 'Accountant'}
+        />
+      )}
         </motion.div>
       </AnimatePresence>
 
@@ -2162,6 +2324,27 @@ export default function AccountantPortal({
           initialFilterStatus={alertModalInitialFilter}
         />
       )}
+
+      {/* Bursary Financial Data Importer Modal */}
+      <FinancialDataImporter
+        isOpen={isImporterOpen}
+        onClose={() => setIsImporterOpen(false)}
+        onImportPayments={(importedPayments) => {
+          importedPayments.forEach(p => onAddPayment(p));
+        }}
+        onImportBills={(importedBills) => {
+          if (onUpdateBills) {
+            const existingMap = new Map(bills.map(b => [b.admissionNo || b.id, b]));
+            importedBills.forEach(ib => existingMap.set(ib.admissionNo || ib.id, ib));
+            onUpdateBills(Array.from(existingMap.values()));
+          }
+        }}
+        onImportExpenses={(importedExpenses) => {
+          const existingExpenses = getStoredExpenses();
+          const updated = [...importedExpenses, ...existingExpenses];
+          saveStoredExpenses(updated);
+        }}
+      />
       </div>
     </div>
   );

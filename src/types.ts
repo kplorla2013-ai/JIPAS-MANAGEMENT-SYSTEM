@@ -232,6 +232,7 @@ export interface PaymentRecord {
   studentName: string;
   admissionNo: string;
   className: string;
+  department?: string;
   paidAs?: string;
   billAmount?: number;
   arrears?: number;
@@ -645,6 +646,22 @@ export interface ScoreConversionItem {
   classScoreWeight: number; // e.g., 40 or 30
   examScoreWeight: number;  // e.g., 60 or 70
   description?: string;
+}
+
+export interface BankDepositRecord {
+  id: string;
+  bankName: string;
+  accountNumber: string;
+  amount: number;
+  bankReceiptNo: string; // Teller / Slip / Deposit receipt number
+  date: string;
+  depositedBy: string; // Name of person who sent/deposited money
+  depositedByRole: 'accountant' | 'bursar' | 'secretary' | 'admin' | string;
+  purpose: string; // e.g. "Daily Tuition Fee Collection Deposit"
+  referenceNo?: string;
+  notes?: string;
+  status: 'Completed' | 'Pending Verification' | string;
+  createdAt: string;
 }
 
 export interface SchoolExpenseRecord {

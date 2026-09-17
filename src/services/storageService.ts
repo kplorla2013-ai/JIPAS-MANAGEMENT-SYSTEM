@@ -24,7 +24,8 @@ import {
   SchoolExpenseRecord,
   SecretaryDailySummary,
   FinancialAuditReport,
-  AccountantPrivilegesConfig
+  AccountantPrivilegesConfig,
+  BankDepositRecord
 } from '../types';
 import { 
   INITIAL_STUDENTS, 
@@ -73,6 +74,7 @@ export const STORAGE_KEYS = {
   ACCOUNTANT_PRIVILEGES: 'jipas_accountant_privileges_config',
   SECRETARY_SUMMARIES: 'jipas_secretary_daily_summaries',
   FINANCIAL_AUDITS: 'jipas_financial_audit_reports',
+  BANK_DEPOSITS: 'jipas_bank_deposits_records',
   DEMO_CLEARED: 'jipas_demo_data_cleared',
   THEME_PALETTE: 'jipas_global_theme_palette'
 } as const;
@@ -897,6 +899,48 @@ export function getStoredPayrollRuns(): any[] {
 
 export function saveStoredPayrollRuns(runs: any[]): void {
   writeStorage('jipas_payroll_runs', runs);
+}
+
+export const INITIAL_BANK_DEPOSITS: BankDepositRecord[] = [
+  {
+    id: 'BANK-DEP-001',
+    bankName: 'Ecobank Ghana',
+    accountNumber: '1441002981201',
+    amount: 15000,
+    bankReceiptNo: 'ECO-TEL-98214',
+    date: new Date().toISOString().split('T')[0],
+    depositedBy: 'Denis Mawutor (Accountant)',
+    depositedByRole: 'accountant',
+    purpose: 'Daily Tuition Fee Collection Banking',
+    referenceNo: 'DEP-2026-001',
+    notes: 'Direct branch counter cash deposit to school operating account.',
+    status: 'Completed',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'BANK-DEP-002',
+    bankName: 'GCB Bank',
+    accountNumber: '2019485710001',
+    amount: 8500,
+    bankReceiptNo: 'GCB-SLIP-40192',
+    date: new Date().toISOString().split('T')[0],
+    depositedBy: 'Abena Osei (Secretary)',
+    depositedByRole: 'secretary',
+    purpose: 'Secretarial Front-Desk Cash Banking',
+    referenceNo: 'DEP-2026-002',
+    notes: 'End-of-day desk cash sent to bank.',
+    status: 'Completed',
+    createdAt: new Date().toISOString()
+  }
+];
+
+// Bank Deposits Getters & Setters
+export function getStoredBankDeposits(): BankDepositRecord[] {
+  return readStorage<BankDepositRecord[]>(STORAGE_KEYS.BANK_DEPOSITS, INITIAL_BANK_DEPOSITS);
+}
+
+export function saveStoredBankDeposits(deposits: BankDepositRecord[]): void {
+  writeStorage(STORAGE_KEYS.BANK_DEPOSITS, deposits);
 }
 
 // Accountant Privileges Getters & Setters
