@@ -318,8 +318,226 @@ export default function StudentPortal({
   const balanceDue = studentBill?.balance ?? 0;
   const clearancePercent = totalPayable > 0 ? Math.min(100, Math.round((totalPaid / totalPayable) * 100)) : 100;
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrintReceiptPDF = (receipt: any) => {
+    if (!receipt) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Fee Payment Receipt - ${receipt.receiptNo || 'Receipt'}</title>
+          <style>
+            @page { size: A5 landscape; margin: 10mm; }
+            body { font-family: system-ui, -apple-system, sans-serif; color: #0f172a; padding: 20px; margin: 0; background: #fff; }
+            .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 15px; }
+            .title { font-size: 18px; font-weight: 900; color: #1e1b4b; text-transform: uppercase; }
+            .subtitle { font-size: 11px; font-weight: 800; color: #0284c7; text-transform: uppercase; margin-top: 2px; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 11px; margin-bottom: 15px; }
+            .box { background: #f8fafc; border: 1px solid #cbd5e1; padding: 10px; border-radius: 8px; }
+            table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 15px; }
+            th { background: #0f172a; color: white; padding: 6px 10px; text-align: left; font-size: 10px; text-transform: uppercase; }
+            td { padding: 6px 10px; border-bottom: 1px solid #e2e8f0; }
+            .amount { font-family: monospace; font-weight: bold; text-align: right; }
+            .footer { display: flex; justify-content: space-between; align-items: flex-end; font-size: 10px; color: #64748b; margin-top: 20px; }
+            .stamp { border: 2px dashed #94a3b8; padding: 10px 20px; border-radius: 6px; text-align: center; font-weight: bold; font-size: 9px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="title">JIPAS EDUCATIONAL COMPLEX</div>
+            <div class="subtitle">OFFICIAL FEE PAYMENT RECEIPT</div>
+            <div style="font-size: 10px; color: #64748b;">Accra, Ghana &bull; Official Student Bursary Receipt</div>
+          </div>
+
+          <div class="grid">
+            <div class="box">
+              <strong>STUDENT PARTICULARS</strong><br/>
+              Name: <strong>${student.fullName}</strong><br/>
+              Admission No: <strong>${student.admissionNo}</strong><br/>
+              Class: <strong>${student.className}</strong>
+            </div>
+            <div class="box">
+              <strong>RECEIPT PARTICULARS</strong><br/>
+              Receipt No: <strong>${receipt.receiptNo}</strong><br/>
+              Date Paid: <strong>${receipt.date}</strong><br/>
+              Payment Method: <strong>${receipt.paymentMethod || 'Cash / MoMo / Bank'}</strong>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th style="text-align: right;">Amount Paid (CFA)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>${receipt.paidAs || 'Fee Payment'}</td>
+                <td class="amount">${(receipt.paid ?? 0).toFixed(2)} CFA</td>
+              </tr>
+              <tr style="background: #f8fafc; font-weight: bold;">
+                <td>Remaining Balance Outstanding</td>
+                <td class="amount" style="color: #be123c;">${(receipt.balance ?? 0).toFixed(2)} CFA</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="footer">
+            <div>
+              Cashier Signature: <strong>${receipt.collectedBy || 'Accountant Office'}</strong><br/>
+              Certified Electronic Receipt &bull; JIPAS Portal
+            </div>
+            <div class="stamp">OFFICIAL BURSAR STAMP</div>
+          </div>
+
+          <script>window.onload = function() { window.print(); window.close(); }</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handlePrintTerminalReportPDF = () => {
+    if (!studentReport) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Terminal Academic Report - ${student.fullName}</title>
+          <style>
+            @page { size: A4 portrait; margin: 15mm; }
+            body { font-family: system-ui, -apple-system, sans-serif; color: #0f172a; padding: 20px; margin: 0; background: #fff; }
+            .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
+            .title { font-size: 20px; font-weight: 900; color: #1e1b4b; text-transform: uppercase; }
+            .subtitle { font-size: 12px; font-weight: 800; color: #0284c7; text-transform: uppercase; margin-top: 2px; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 11px; margin-bottom: 20px; }
+            .box { background: #f8fafc; border: 1px solid #cbd5e1; padding: 12px; border-radius: 8px; }
+            table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px; }
+            th { background: #0f172a; color: white; padding: 8px 10px; text-align: left; font-size: 10px; text-transform: uppercase; }
+            td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
+            .center { text-align: center; }
+            .bold { font-weight: bold; }
+            .footer { margin-top: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; font-size: 11px; }
+            .signature { border-top: 1px solid #0f172a; padding-top: 5px; text-align: center; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="title">JIPAS EDUCATIONAL COMPLEX</div>
+            <div class="subtitle">OFFICIAL TERMINAL ACADEMIC PERFORMANCE REPORT</div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 3px;">Accra, Ghana &bull; Academic Assessment Bureau</div>
+          </div>
+
+          <div class="grid">
+            <div class="box">
+              <strong>STUDENT PARTICULARS</strong><br/>
+              Full Name: <strong>${student.fullName}</strong><br/>
+              Admission No: <strong>${student.admissionNo}</strong><br/>
+              Class: <strong>${student.className}</strong><br/>
+              Department: <strong>${student.department || 'General'}</strong>
+            </div>
+            <div class="box">
+              <strong>ACADEMIC PERIOD & SUMMARY</strong><br/>
+              Academic Year: <strong>2025/2026</strong><br/>
+              Term: <strong>${selectedTerm}</strong><br/>
+              Overall Score: <strong>${(studentReport as any).overallScore || studentReport.averageScore || 'N/A'}%</strong><br/>
+              Class Rank / Position: <strong>${studentReport.position || 'N/A'}</strong>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Subject</th>
+                <th class="center">Class Score (40)</th>
+                <th class="center">Exam Score (60)</th>
+                <th class="center">Total Score (100)</th>
+                <th class="center">Grade</th>
+                <th>Teacher's Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${((studentReport as any).subjectGrades || (studentReport.scores as any[]) || []).map((s: any) => `
+                <tr>
+                  <td class="bold">${s.subject || s.subjectName}</td>
+                  <td class="center">${s.classScore ?? s.classWork ?? 0}</td>
+                  <td class="center">${s.examScore ?? s.exam ?? 0}</td>
+                  <td class="center bold">${s.totalScore ?? s.total ?? 0}</td>
+                  <td class="center bold">${s.grade || 'N/A'}</td>
+                  <td>${s.remarks || s.remark || 'Satisfactory progress'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="box" style="margin-bottom: 20px;">
+            <strong>HEADMASTER & CLASS TEACHER REMARKS</strong><br/>
+            Class Teacher Comment: <em>${studentReport.teacherComment || 'Demonstrates strong dedication and academic commitment.'}</em><br/>
+            Headmaster Comment: <em>${studentReport.headmasterComment || 'Promoted to the next academic level.'}</em>
+          </div>
+
+          <div class="footer">
+            <div class="signature">Class Teacher Signature</div>
+            <div class="signature">Headmaster / Principal Stamp</div>
+          </div>
+
+          <script>window.onload = function() { window.print(); window.close(); }</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handlePrintIdCardPDF = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Official Student ID Card - ${student.fullName}</title>
+          <style>
+            @page { size: 85.6mm 54mm; margin: 0; }
+            body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 12px; background: #0f172a; color: #fff; width: 85.6mm; height: 54mm; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; }
+            .title { font-size: 11px; font-weight: 900; text-align: center; text-transform: uppercase; color: #38bdf8; letter-spacing: 0.5px; }
+            .sub { font-size: 7px; text-align: center; color: #cbd5e1; text-transform: uppercase; }
+            .content { display: flex; gap: 10px; align-items: center; margin-top: 6px; }
+            .avatar { width: 42px; height: 42px; border-radius: 50%; border: 2px solid #38bdf8; background: #1e293b; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; shrink: 0; }
+            .info { font-size: 8px; line-height: 1.3; }
+            .info strong { color: #f8fafc; font-size: 9px; display: block; }
+            .footer { border-top: 1px solid #334155; padding-top: 4px; display: flex; justify-content: space-between; font-size: 7px; color: #94a3b8; }
+          </style>
+        </head>
+        <body>
+          <div>
+            <div class="title">JIPAS EDUCATIONAL COMPLEX</div>
+            <div class="sub">OFFICIAL STUDENT IDENTIFICATION CARD</div>
+            <div class="content">
+              <div class="avatar">${student.fullName.charAt(0)}</div>
+              <div class="info">
+                <strong>${student.fullName}</strong>
+                ID: ${student.admissionNo}<br/>
+                Class: ${student.className}<br/>
+                House: ${student.house} House
+              </div>
+            </div>
+          </div>
+          <div class="footer">
+            <span>Emergency: ${student.parentPhone || 'N/A'}</span>
+            <span>Accra, Ghana</span>
+          </div>
+          <script>window.onload = function() { window.print(); window.close(); }</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   const handlePrintStatementPDF = () => {
@@ -1160,10 +1378,10 @@ export default function StudentPortal({
 
               {isReportBroadcasted ? (
                 <button
-                  onClick={handlePrint}
+                  onClick={handlePrintTerminalReportPDF}
                   className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
                 >
-                  <Printer className="w-3.5 h-3.5" /> Print Official Report
+                  <Printer className="w-3.5 h-3.5" /> Generate & Print Official Report
                 </button>
               ) : (
                 <button
@@ -1797,10 +2015,10 @@ export default function StudentPortal({
             {/* Buttons */}
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 print:hidden">
               <button
-                onClick={handlePrint}
+                onClick={() => handlePrintReceiptPDF(selectedReceipt)}
                 className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1 cursor-pointer"
               >
-                <Printer className="w-3.5 h-3.5" /> Print Receipt
+                <Printer className="w-3.5 h-3.5" /> Generate & Print Receipt
               </button>
               <button
                 onClick={() => setSelectedReceipt(null)}
@@ -1917,10 +2135,10 @@ export default function StudentPortal({
 
             <div className="flex justify-between items-center pt-2">
               <button
-                onClick={handlePrint}
+                onClick={handlePrintIdCardPDF}
                 className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
               >
-                <Printer className="w-3.5 h-3.5" /> Print ID Card
+                <Printer className="w-3.5 h-3.5" /> Generate & Print ID Card
               </button>
               <button
                 onClick={() => setShowDigitalIdModal(false)}

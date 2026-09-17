@@ -92,6 +92,87 @@ export default function AccountantPortal({
   const [activeTab, setActiveTab] = useState<AccountantTab>(() => getInitialAccountantTab());
   const [expenses] = useState(() => getStoredExpenses());
 
+  const handlePrintReceipt = (receipt: PaymentRecord) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Official Fee Receipt - ${receipt.receiptNo}</title>
+          <style>
+            @page { size: A5 landscape; margin: 10mm; }
+            body { font-family: system-ui, -apple-system, sans-serif; color: #0f172a; padding: 20px; margin: 0; background: #fff; }
+            .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 15px; }
+            .title { font-size: 18px; font-weight: 900; color: #1e1b4b; text-transform: uppercase; }
+            .subtitle { font-size: 11px; font-weight: 800; color: #0284c7; text-transform: uppercase; margin-top: 2px; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 11px; margin-bottom: 15px; }
+            .box { background: #f8fafc; border: 1px solid #cbd5e1; padding: 10px; border-radius: 8px; }
+            table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 15px; }
+            th { background: #0f172a; color: white; padding: 6px 10px; text-align: left; font-size: 10px; text-transform: uppercase; }
+            td { padding: 6px 10px; border-bottom: 1px solid #e2e8f0; }
+            .amount { font-family: monospace; font-weight: bold; text-align: right; }
+            .footer { display: flex; justify-content: space-between; align-items: flex-end; font-size: 10px; color: #64748b; margin-top: 20px; }
+            .stamp { border: 2px dashed #94a3b8; padding: 10px 20px; border-radius: 6px; text-align: center; font-weight: bold; font-size: 9px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="title">JIPAS EDUCATIONAL COMPLEX</div>
+            <div class="subtitle">OFFICIAL FEE PAYMENT RECEIPT</div>
+            <div style="font-size: 10px; color: #64748b;">Accra, Ghana &bull; Official Bursar & Accounts Desk</div>
+          </div>
+
+          <div class="grid">
+            <div class="box">
+              <strong>STUDENT INFORMATION</strong><br/>
+              Name: <strong>${receipt.studentName}</strong><br/>
+              Admission No: <strong>${receipt.admissionNo}</strong><br/>
+              Class: <strong>${receipt.className}</strong>
+            </div>
+            <div class="box">
+              <strong>RECEIPT DETAILS</strong><br/>
+              Receipt No: <strong>${receipt.receiptNo}</strong><br/>
+              Date: <strong>${receipt.date}</strong><br/>
+              Method: <strong>${receipt.paymentMethod || receipt.method || 'Cash / Mobile Money'}</strong>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th style="text-align: right;">Amount Paid (CFA)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>${receipt.paidAs || 'Tuition Fee Payment'}</td>
+                <td class="amount">${(receipt.paid ?? 0).toFixed(2)} CFA</td>
+              </tr>
+              <tr style="background: #f8fafc; font-weight: bold;">
+                <td>Remaining Balance Outstanding</td>
+                <td class="amount" style="color: #be123c;">${(receipt.balance ?? 0).toFixed(2)} CFA</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="footer">
+            <div>
+              Cashier / Collected By: <strong>${receipt.collectedBy || 'Accountant'}</strong><br/>
+              Thank you for your prompt payment.
+            </div>
+            <div class="stamp">OFFICIAL BURSAR STAMP</div>
+          </div>
+
+          <script>window.onload = function() { window.print(); window.close(); }</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   // Department & Class level selection for Fee Payment
   const [paymentDept, setPaymentDept] = useState<string>('All');
   const [customDeptInput, setCustomDeptInput] = useState<string>('');
@@ -2274,10 +2355,10 @@ export default function AccountantPortal({
 
             <div className="flex gap-2 pt-2">
               <button
-                onClick={() => window.print()}
-                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm"
+                onClick={() => handlePrintReceipt(activeReceipt)}
+                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
               >
-                <Printer className="w-3.5 h-3.5" /> Print Receipt
+                <Printer className="w-3.5 h-3.5" /> Generate & Print Official Receipt
               </button>
               <button
                 onClick={() => setActiveReceipt(null)}

@@ -250,8 +250,44 @@ select[class*="bg-[#"]:disabled {
     width: 210mm !important;
     background: #ffffff !important;
     color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  /* Hide all dashboard chrome: sidebars, navigation headers, floating menus, action buttons */
+  aside,
+  nav,
+  header,
+  footer,
+  button,
+  .print\:hidden,
+  .print-hidden,
+  [role="navigation"],
+  .fixed.bottom-6,
+  .speed-dial,
+  .quick-action-speed-dial {
+    display: none !important;
+  }
+
+  /* Reset layout containers so dashboard panels don't offset printable content */
+  div, main, section {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Modal overlay reset: when modal is printed, hide dark backdrops and render strictly clean white content */
+  .fixed.inset-0 {
+    position: relative !important;
+    inset: auto !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 
   .print-a4-page {
