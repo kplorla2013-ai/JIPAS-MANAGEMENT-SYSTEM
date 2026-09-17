@@ -3,11 +3,12 @@ import { User, UserAccountItem } from '../types';
 import { 
   Mail, Eye, EyeOff, LogIn, CheckCircle2, Lock, Loader2, 
   AlertCircle, UserPlus, GraduationCap, Briefcase, Phone, User as UserIcon, Shield, ArrowLeft, Building2,
-  KeyRound, ShieldCheck, HelpCircle, Sparkles, Zap, Wallet, Image as ImageIcon
+  KeyRound, ShieldCheck, HelpCircle, Sparkles, Zap, Wallet, Image as ImageIcon, Presentation
 } from 'lucide-react';
 import JIPASLogo from './common/JIPASLogo';
 import LanguageSwitcher from './common/LanguageSwitcher';
 import EmailVerificationModal from './common/EmailVerificationModal';
+import { AppPresentationOverviewModal } from './common/AppPresentationOverviewModal';
 import { isEmailVerified } from '../services/verificationService';
 import { 
   authenticateWithFirebase, 
@@ -29,6 +30,7 @@ type AuthViewMode = 'login' | 'register_faculty' | 'register_student';
 
 export default function LoginScreen({ onLogin, studentsList, teachersList = [] }: LoginScreenProps) {
   const [viewMode, setViewMode] = useState<AuthViewMode>('login');
+  const [showPresentationOverview, setShowPresentationOverview] = useState(false);
   const [activeWallpaper, setActiveWallpaper] = useState<'classroom' | 'assembly'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('jipas_login_wallpaper');
@@ -101,13 +103,22 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
   // --------------------------------------------------------------------------
   // Instant Free Demo Login Handler
   // --------------------------------------------------------------------------
-  const handleDemoLogin = (role: 'teacher' | 'accountant' | 'student') => {
+  const handleDemoLogin = (role: 'admin' | 'teacher' | 'accountant' | 'student') => {
     setErrorMsg('');
     setIsLoading(true);
 
     let demoUser: User;
 
-    if (role === 'teacher') {
+    if (role === 'admin') {
+      demoUser = {
+        id: 'usr-adm-1',
+        name: 'JAKRei (Administrator)',
+        email: 'rei311213@gmail.com',
+        role: 'admin',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
+      };
+      setAuthSuccessNotice('⚡ Free Demo Access: Logged in as School Administrator!');
+    } else if (role === 'teacher') {
       const firstTeacher = teachersList && teachersList.length > 0 ? teachersList[0] : null;
       demoUser = {
         id: firstTeacher?.id || 'usr-teach-1',
@@ -556,19 +567,30 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
       <div className="absolute inset-0 bg-gradient-to-b from-slate-950/85 via-slate-950/75 to-slate-950/90 backdrop-blur-[1.5px]" />
       <div className="absolute inset-0 bg-blue-950/20 mix-blend-overlay" />
 
-      {/* Top Controls: Wallpaper Switcher & Language Selector */}
-      <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between">
-        <button
-          onClick={handleToggleWallpaper}
-          className="bg-white/15 hover:bg-white/25 active:scale-95 backdrop-blur-md text-white border border-white/20 text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg transition-all cursor-pointer"
-          title="Switch School Wallpaper"
-        >
-          <ImageIcon className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="hidden sm:inline">Wallpaper:</span>
-          <span className="text-emerald-300 font-bold">
-            {activeWallpaper === 'classroom' ? 'Classroom Learning' : 'Morning Assembly'}
-          </span>
-        </button>
+      {/* Top Controls: Wallpaper Switcher, App Overview Presentation & Language Selector */}
+      <div className="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleToggleWallpaper}
+            className="bg-white/15 hover:bg-white/25 active:scale-95 backdrop-blur-md text-white border border-white/20 text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg transition-all cursor-pointer"
+            title="Switch School Wallpaper"
+          >
+            <ImageIcon className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden sm:inline">Wallpaper:</span>
+            <span className="text-emerald-300 font-bold">
+              {activeWallpaper === 'classroom' ? 'Classroom Learning' : 'Morning Assembly'}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setShowPresentationOverview(true)}
+            className="bg-gradient-to-r from-amber-500/30 via-orange-500/20 to-amber-500/30 hover:from-amber-500/40 hover:to-orange-500/40 active:scale-95 backdrop-blur-md text-white border border-amber-400/40 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg transition-all cursor-pointer animate-pulse hover:animate-none"
+            title="Open App Overview & Institutional Presentation"
+          >
+            <Presentation className="w-3.5 h-3.5 text-amber-300" />
+            <span className="text-amber-200 font-black">App Overview & Presentation</span>
+          </button>
+        </div>
 
         <LanguageSwitcher variant="pill" />
       </div>
@@ -601,13 +623,44 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
       {viewMode === 'login' && (
         <div className="w-full max-w-[440px] bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/40 p-7 sm:p-8 z-10 transition-all duration-300">
           
-          <div className="text-center space-y-1 mb-5">
+          <div className="text-center space-y-1 mb-4">
             <h2 className="text-slate-900 font-black text-xl tracking-tight">
               Sign In to Your Account
             </h2>
             <p className="text-xs text-slate-500">
               Enter your credentials to be automatically routed to your portal.
             </p>
+          </div>
+
+          {/* App Overview & Presentation Callout Banner */}
+          <div className="mb-4">
+            <button
+              type="button"
+              onClick={() => setShowPresentationOverview(true)}
+              className="w-full p-2.5 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 hover:from-amber-100 hover:to-orange-100 border border-amber-300/80 rounded-2xl flex items-center justify-between gap-3 text-left transition-all shadow-xs group cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-500 text-white rounded-xl shadow-xs group-hover:scale-105 transition-transform">
+                  <Presentation className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-black text-slate-900">
+                      App Presentation & Overview
+                    </span>
+                    <span className="bg-amber-200 text-amber-900 text-[9px] font-extrabold px-1.5 py-0.2 rounded-md uppercase">
+                      New
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 font-medium">
+                    Walkthrough key modules, GES grading, & portals
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-amber-700 group-hover:translate-x-0.5 transition-transform">
+                Explore →
+              </span>
+            </button>
           </div>
 
           {errorMsg && (
@@ -1252,6 +1305,15 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
             setShowVerificationModal(false);
             setPendingRegistrationAction(null);
           }}
+        />
+      )}
+
+      {/* Institutional App Presentation & System Overview Modal */}
+      {showPresentationOverview && (
+        <AppPresentationOverviewModal
+          isOpen={showPresentationOverview}
+          onClose={() => setShowPresentationOverview(false)}
+          onSelectRole={handleDemoLogin}
         />
       )}
 
