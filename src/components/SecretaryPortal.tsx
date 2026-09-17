@@ -58,7 +58,9 @@ import {
   User as UserIcon,
   UserPlus,
   AlertTriangle,
-  Filter
+  Filter,
+  Menu,
+  LogOut
 } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 
@@ -100,6 +102,8 @@ export default function SecretaryPortal({
   onLogout
 }: SecretaryPortalProps) {
   const [activeTab, setActiveTab] = useState<SecretaryActiveTab>('fee_collection');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [expenses, setExpenses] = useState<SchoolExpenseRecord[]>(() => getStoredExpenses());
   const [summaries, setSummaries] = useState<SecretaryDailySummary[]>(() => getStoredSecretarySummaries());
 
@@ -652,184 +656,515 @@ export default function SecretaryPortal({
   };
 
   return (
-    <div className="space-y-6 animate-fade-in text-slate-900 pb-16">
-      {/* Toast */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs font-bold border border-slate-700 animate-bounce">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>{toastMessage}</span>
+    <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row text-slate-900 font-sans relative w-full">
+      {/* Mobile Top Header with Hamburger */}
+      <div className="lg:hidden flex items-center justify-between bg-white border-b border-slate-200 px-4 py-3 sticky top-0 z-30">
+        <div className="flex items-center gap-2">
+          <JIPASLogo className="w-8 h-8" />
+          <span className="font-extrabold text-sm tracking-tight text-slate-900">JIPAS Secretary</span>
         </div>
-      )}
+        <button
+          onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+          className="p-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+      </div>
 
-      {/* Hero Welcome & Today's Cash Summary Card */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs relative overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
-                <Receipt className="w-5 h-5" />
+      {/* Modern Collapsible Sidebar */}
+      <div className={`fixed inset-y-0 left-0 z-40 bg-white border-r border-slate-200 flex flex-col justify-between transition-all duration-300 transform lg:static lg:translate-x-0 ${
+        isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      } ${
+        isSidebarCollapsed ? 'lg:w-20' : 'lg:w-64 xl:w-72'
+      }`}>
+        {/* Sidebar Brand Header */}
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <JIPASLogo className="w-9 h-9 shrink-0" />
+            {!isSidebarCollapsed && (
+              <div className="flex flex-col">
+                <span className="font-black text-slate-900 tracking-tight text-xs leading-none">JIPAS SCHOOLS</span>
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Secretariat</span>
               </div>
-              <span className="text-xs font-black tracking-wider uppercase text-blue-600">
-                Front Desk & Secretarial Portal
+            )}
+          </div>
+          {/* Collapse/Expand Toggle button (desktop) */}
+          <button
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className="hidden lg:flex p-1.5 hover:bg-slate-100 text-slate-500 rounded-lg transition-all cursor-pointer"
+            title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            {isSidebarCollapsed ? <Plus className="w-4 h-4 rotate-45" /> : <X className="w-4 h-4" />}
+          </button>
+        </div>
+
+        {/* Sidebar Navigation Menu Items */}
+        <div className="flex-1 py-4 overflow-y-auto space-y-1 px-3">
+          {[
+            { id: 'fee_collection', label: 'Collect School Fees', icon: CreditCard, color: 'text-blue-600' },
+            { id: 'expenses', label: 'Record Daily Expenses', icon: Receipt, color: 'text-rose-600' },
+            { id: 'daily_reconcile', label: 'Daily Handover', icon: Layers, color: 'text-indigo-600' },
+            { id: 'students_lookup', label: 'Student Records', icon: BookOpen, color: 'text-amber-600' },
+            { id: 'bank_deposits', label: 'Bank Deposits', icon: Building, color: 'text-emerald-600' },
+            { id: 'enroll_student', label: 'Enroll New Student', icon: UserPlus, color: 'text-violet-600' },
+            { id: 'overdue_alerts', label: 'Overdue Fee Alerts', icon: AlertTriangle, color: 'text-red-600' },
+            { id: 'collections_log', label: 'Payment Collections', icon: TrendingUp, color: 'text-cyan-600' },
+          ].map((item) => {
+            const Icon = item.icon;
+            const isSelected = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActiveTab(item.id as any);
+                  setIsMobileSidebarOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 p-3 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
+                  isSelected
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                } ${isSidebarCollapsed ? 'justify-center' : ''}`}
+                title={item.label}
+              >
+                <Icon className={`w-4 h-4 shrink-0 ${isSelected ? 'text-white' : item.color}`} />
+                {!isSidebarCollapsed && <span className="truncate">{item.label}</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Sidebar Profile & Logout Footer */}
+        <div className="p-4 border-t border-slate-100 space-y-2">
+          {!isSidebarCollapsed && (
+            <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl">
+              <p className="text-[10px] text-slate-400 font-extrabold uppercase">Desk Agent</p>
+              <p className="text-xs font-bold text-slate-800 truncate">{secretary.name}</p>
+              <p className="text-[10px] text-slate-400 capitalize">{secretary.role || 'Secretary'}</p>
+            </div>
+          )}
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className={`w-full flex items-center gap-3 p-3 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                isSidebarCollapsed ? 'justify-center' : ''
+              }`}
+            >
+              <LogOut className="w-4 h-4 shrink-0" />
+              {!isSidebarCollapsed && <span>Logout</span>}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Main Content Workspace Panel */}
+      <div className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto max-w-full">
+        {/* Toast Notification message */}
+        {toastMessage && (
+          <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs font-bold border border-slate-700 animate-bounce">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{toastMessage}</span>
+          </div>
+        )}
+
+        {/* Hero Welcome & Today's Cash Summary Card */}
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs relative overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                  <Receipt className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-black tracking-wider uppercase text-blue-600">
+                  Front Desk & Secretarial Portal
+                </span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
+                Welcome, {secretary.name}
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl">
+                Front desk point-of-sale fee collection, instant official receipts, petty cash disbursements, and daily reconciliation with the main bursary.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-xl border border-emerald-200">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                Desk Active • {todayStr}
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
-              Welcome, {secretary.name}
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl">
-              Front desk point-of-sale fee collection, instant official receipts, petty cash disbursements, and daily reconciliation with the main bursary.
-            </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-xl border border-emerald-200">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              Desk Active • {todayStr}
-            </span>
-          </div>
-        </div>
+          {/* 3 Key Daily Tally Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-6 pt-6 border-t border-slate-100">
+            <div className="p-4 bg-emerald-50/70 rounded-2xl border border-emerald-200/60 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-emerald-700 mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider">Fees Collected Today</span>
+                <DollarSign className="w-4 h-4 text-emerald-600" />
+              </div>
+              <div className="text-2xl font-black text-emerald-900 font-mono">
+                GH₵ {(totalFeesCollectedToday || 0).toFixed(2)}
+              </div>
+              <span className="text-[10px] text-emerald-700 font-semibold mt-1">
+                {todaySecretaryPayments.length} student payments received
+              </span>
+            </div>
 
-        {/* 3 Key Daily Tally Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-6 pt-6 border-t border-slate-100">
-          <div className="p-4 bg-emerald-50/70 rounded-2xl border border-emerald-200/60 flex flex-col justify-between">
-            <div className="flex items-center justify-between text-emerald-700 mb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Fees Collected Today</span>
-              <DollarSign className="w-4 h-4 text-emerald-600" />
+            <div className="p-4 bg-rose-50/70 rounded-2xl border border-rose-200/60 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-rose-700 mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider">Expenses Logged Today</span>
+                <Receipt className="w-4 h-4 text-rose-600" />
+              </div>
+              <div className="text-2xl font-black text-rose-900 font-mono">
+                GH₵ {(totalExpensesLoggedToday || 0).toFixed(2)}
+              </div>
+              <span className="text-[10px] text-rose-700 font-semibold mt-1">
+                {todaySecretaryExpenses.length} petty cash outlays
+              </span>
             </div>
-            <div className="text-2xl font-black text-emerald-900 font-mono">
-              GH₵ {(totalFeesCollectedToday || 0).toFixed(2)}
-            </div>
-            <span className="text-[10px] text-emerald-700 font-semibold mt-1">
-              {todaySecretaryPayments.length} student payments received
-            </span>
-          </div>
 
-          <div className="p-4 bg-rose-50/70 rounded-2xl border border-rose-200/60 flex flex-col justify-between">
-            <div className="flex items-center justify-between text-rose-700 mb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Expenses Logged Today</span>
-              <Receipt className="w-4 h-4 text-rose-600" />
+            <div className="p-4 bg-blue-50/70 rounded-2xl border border-blue-200/60 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-blue-700 mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider">Net Cash on Hand</span>
+                <Wallet className="w-4 h-4 text-blue-600" />
+              </div>
+              <div className={`text-2xl font-black font-mono ${netCashOnHand >= 0 ? 'text-blue-900' : 'text-rose-900'}`}>
+                GH₵ {(netCashOnHand || 0).toFixed(2)}
+              </div>
+              <span className="text-[10px] text-blue-700 font-semibold mt-1">
+                Ready for Bursar handover
+              </span>
             </div>
-            <div className="text-2xl font-black text-rose-900 font-mono">
-              GH₵ {(totalExpensesLoggedToday || 0).toFixed(2)}
-            </div>
-            <span className="text-[10px] text-rose-700 font-semibold mt-1">
-              {todaySecretaryExpenses.length} petty cash outlays
-            </span>
-          </div>
-
-          <div className="p-4 bg-blue-50/70 rounded-2xl border border-blue-200/60 flex flex-col justify-between">
-            <div className="flex items-center justify-between text-blue-700 mb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Net Cash on Hand</span>
-              <Wallet className="w-4 h-4 text-blue-600" />
-            </div>
-            <div className={`text-2xl font-black font-mono ${netCashOnHand >= 0 ? 'text-blue-900' : 'text-rose-900'}`}>
-              GH₵ {(netCashOnHand || 0).toFixed(2)}
-            </div>
-            <span className="text-[10px] text-blue-700 font-semibold mt-1">
-              Ready for Bursar handover
-            </span>
           </div>
         </div>
-      </div>
 
-      {/* Navigation Tabs */}
-      <div className="bg-white rounded-2xl p-2 border border-slate-200/80 shadow-xs flex items-center gap-2 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('fee_collection')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
-            activeTab === 'fee_collection'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <CreditCard className="w-4 h-4" />
-          <span>Collect School Fees</span>
-        </button>
+        {/* Action Thumbnail Grid Navigation */}
+        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                <Sparkles className="w-4.5 h-4.5 text-blue-600" />
+                Secretary Quick Action & Desk Management
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Select a desk thumbnail below to handle school fee collections, petty cash outlays, reconciliations, or registrations.
+              </p>
+            </div>
+          </div>
 
-        <button
-          onClick={() => setActiveTab('expenses')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
-            activeTab === 'expenses'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <Receipt className="w-4 h-4" />
-          <span>Record Daily Expenses</span>
-        </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
+            {/* Thumbnail 1: Collect School Fees */}
+            <button
+              onClick={() => setActiveTab('fee_collection')}
+              className={`group p-4 rounded-2xl text-left transition-all duration-200 border cursor-pointer flex flex-col justify-between min-h-[140px] space-y-3 ${
+                activeTab === 'fee_collection'
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-md scale-[1.02]'
+                  : 'bg-gradient-to-br from-blue-50/80 to-slate-50 hover:from-blue-600 hover:to-blue-700 border-blue-100 hover:border-blue-600 hover:text-white shadow-2xs hover:shadow-lg'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors shadow-xs ${
+                  activeTab === 'fee_collection'
+                    ? 'bg-white text-blue-700'
+                    : 'bg-blue-600 text-white group-hover:bg-white group-hover:text-blue-700'
+                }`}>
+                  <CreditCard className="w-5 h-5" />
+                </div>
+                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider transition-colors ${
+                  activeTab === 'fee_collection'
+                    ? 'bg-blue-800 text-blue-100'
+                    : 'bg-blue-100 group-hover:bg-blue-500 text-blue-800 group-hover:text-white'
+                }`}>
+                  POS DESK
+                </span>
+              </div>
+              <div>
+                <h4 className={`font-extrabold text-xs transition-colors ${
+                  activeTab === 'fee_collection' ? 'text-white' : 'text-slate-900 group-hover:text-white'
+                }`}>
+                  Collect School Fees
+                </h4>
+                <p className={`text-[11px] mt-0.5 line-clamp-2 transition-colors ${
+                  activeTab === 'fee_collection' ? 'text-blue-100' : 'text-slate-500 group-hover:text-blue-100'
+                }`}>
+                  Process student payments & generate instant official receipts
+                </p>
+              </div>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('daily_reconcile')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
-            activeTab === 'daily_reconcile'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <Layers className="w-4 h-4" />
-          <span>Daily Handover & Reconciliation</span>
-        </button>
+            {/* Thumbnail 2: Record Daily Expenses */}
+            <button
+              onClick={() => setActiveTab('expenses')}
+              className={`group p-4 rounded-2xl text-left transition-all duration-200 border cursor-pointer flex flex-col justify-between min-h-[140px] space-y-3 ${
+                activeTab === 'expenses'
+                  ? 'bg-rose-600 text-white border-rose-600 shadow-md scale-[1.02]'
+                  : 'bg-gradient-to-br from-rose-50/80 to-slate-50 hover:from-rose-600 hover:to-rose-700 border-rose-100 hover:border-rose-600 hover:text-white shadow-2xs hover:shadow-lg'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors shadow-xs ${
+                  activeTab === 'expenses'
+                    ? 'bg-white text-rose-700'
+                    : 'bg-rose-600 text-white group-hover:bg-white group-hover:text-rose-700'
+                }`}>
+                  <Receipt className="w-5 h-5" />
+                </div>
+                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider transition-colors ${
+                  activeTab === 'expenses'
+                    ? 'bg-rose-800 text-rose-100'
+                    : 'bg-rose-100 group-hover:bg-rose-500 text-rose-800 group-hover:text-white'
+                }`}>
+                  OUTFLOWS
+                </span>
+              </div>
+              <div>
+                <h4 className={`font-extrabold text-xs transition-colors ${
+                  activeTab === 'expenses' ? 'text-white' : 'text-slate-900 group-hover:text-white'
+                }`}>
+                  Record Daily Expenses
+                </h4>
+                <p className={`text-[11px] mt-0.5 line-clamp-2 transition-colors ${
+                  activeTab === 'expenses' ? 'text-rose-100' : 'text-slate-500 group-hover:text-rose-100'
+                }`}>
+                  Log petty cash disbursements & petty purchases
+                </p>
+              </div>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('students_lookup')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
-            activeTab === 'students_lookup'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <BookOpen className="w-4 h-4" />
-          <span>Student Records & Arrears</span>
-        </button>
+            {/* Thumbnail 3: Daily Handover & Reconciliation */}
+            <button
+              onClick={() => setActiveTab('daily_reconcile')}
+              className={`group p-4 rounded-2xl text-left transition-all duration-200 border cursor-pointer flex flex-col justify-between min-h-[140px] space-y-3 ${
+                activeTab === 'daily_reconcile'
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-md scale-[1.02]'
+                  : 'bg-gradient-to-br from-indigo-50/80 to-slate-50 hover:from-indigo-600 hover:to-indigo-700 border-indigo-100 hover:border-indigo-600 hover:text-white shadow-2xs hover:shadow-lg'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors shadow-xs ${
+                  activeTab === 'daily_reconcile'
+                    ? 'bg-white text-indigo-700'
+                    : 'bg-indigo-600 text-white group-hover:bg-white group-hover:text-indigo-700'
+                }`}>
+                  <Layers className="w-5 h-5" />
+                </div>
+                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider transition-colors ${
+                  activeTab === 'daily_reconcile'
+                    ? 'bg-indigo-800 text-indigo-100'
+                    : 'bg-indigo-100 group-hover:bg-indigo-500 text-indigo-800 group-hover:text-white'
+                }`}>
+                  RECONCILE
+                </span>
+              </div>
+              <div>
+                <h4 className={`font-extrabold text-xs transition-colors ${
+                  activeTab === 'daily_reconcile' ? 'text-white' : 'text-slate-900 group-hover:text-white'
+                }`}>
+                  Daily Handover & Reconcile
+                </h4>
+                <p className={`text-[11px] mt-0.5 line-clamp-2 transition-colors ${
+                  activeTab === 'daily_reconcile' ? 'text-indigo-100' : 'text-slate-500 group-hover:text-indigo-100'
+                }`}>
+                  Balance desk totals & register bursar handover summary
+                </p>
+              </div>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('bank_deposits')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
-            activeTab === 'bank_deposits'
-              ? 'bg-emerald-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <Building className="w-4 h-4 text-emerald-300" />
-          <span>Bank Deposits & Slips</span>
-        </button>
+            {/* Thumbnail 4: Student Records & Arrears */}
+            <button
+              onClick={() => setActiveTab('students_lookup')}
+              className={`group p-4 rounded-2xl text-left transition-all duration-200 border cursor-pointer flex flex-col justify-between min-h-[140px] space-y-3 ${
+                activeTab === 'students_lookup'
+                  ? 'bg-amber-600 text-white border-amber-600 shadow-md scale-[1.02]'
+                  : 'bg-gradient-to-br from-amber-50/80 to-slate-50 hover:from-amber-600 hover:to-amber-700 border-amber-100 hover:border-amber-600 hover:text-white shadow-2xs hover:shadow-lg'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors shadow-xs ${
+                  activeTab === 'students_lookup'
+                    ? 'bg-white text-amber-700'
+                    : 'bg-amber-600 text-white group-hover:bg-white group-hover:text-amber-700'
+                }`}>
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider transition-colors ${
+                  activeTab === 'students_lookup'
+                    ? 'bg-amber-800 text-amber-100'
+                    : 'bg-amber-100 group-hover:bg-amber-500 text-amber-800 group-hover:text-white'
+                }`}>
+                  ROSTER
+                </span>
+              </div>
+              <div>
+                <h4 className={`font-extrabold text-xs transition-colors ${
+                  activeTab === 'students_lookup' ? 'text-white' : 'text-slate-900 group-hover:text-white'
+                }`}>
+                  Student Records & Arrears
+                </h4>
+                <p className={`text-[11px] mt-0.5 line-clamp-2 transition-colors ${
+                  activeTab === 'students_lookup' ? 'text-amber-100' : 'text-slate-500 group-hover:text-amber-100'
+                }`}>
+                  Inspect student bill balances, history, and profiles
+                </p>
+              </div>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('enroll_student')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
-            activeTab === 'enroll_student'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>Enroll New Student</span>
-        </button>
+            {/* Thumbnail 5: Bank Deposits */}
+            <button
+              onClick={() => setActiveTab('bank_deposits')}
+              className={`group p-4 rounded-2xl text-left transition-all duration-200 border cursor-pointer flex flex-col justify-between min-h-[140px] space-y-3 ${
+                activeTab === 'bank_deposits'
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-md scale-[1.02]'
+                  : 'bg-gradient-to-br from-emerald-50/80 to-slate-50 hover:from-emerald-600 hover:to-emerald-700 border-emerald-100 hover:border-emerald-600 hover:text-white shadow-2xs hover:shadow-lg'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors shadow-xs ${
+                  activeTab === 'bank_deposits'
+                    ? 'bg-white text-emerald-700'
+                    : 'bg-emerald-600 text-white group-hover:bg-white group-hover:text-emerald-700'
+                }`}>
+                  <Building className="w-5 h-5" />
+                </div>
+                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider transition-colors ${
+                  activeTab === 'bank_deposits'
+                    ? 'bg-emerald-800 text-emerald-100'
+                    : 'bg-emerald-100 group-hover:bg-emerald-500 text-emerald-800 group-hover:text-white'
+                }`}>
+                  DEPOSITS
+                </span>
+              </div>
+              <div>
+                <h4 className={`font-extrabold text-xs transition-colors ${
+                  activeTab === 'bank_deposits' ? 'text-white' : 'text-slate-900 group-hover:text-white'
+                }`}>
+                  Bank Deposits
+                </h4>
+                <p className={`text-[11px] mt-0.5 line-clamp-2 transition-colors ${
+                  activeTab === 'bank_deposits' ? 'text-emerald-100' : 'text-slate-500 group-hover:text-emerald-100'
+                }`}>
+                  Verify bank wire receipts, transfers & slip registers
+                </p>
+              </div>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('overdue_alerts')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
-            activeTab === 'overdue_alerts'
-              ? 'bg-red-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <AlertTriangle className="w-4 h-4" />
-          <span>Overdue Fee Alerts</span>
-        </button>
+            {/* Thumbnail 6: Enroll New Student */}
+            <button
+              onClick={() => setActiveTab('enroll_student')}
+              className={`group p-4 rounded-2xl text-left transition-all duration-200 border cursor-pointer flex flex-col justify-between min-h-[140px] space-y-3 ${
+                activeTab === 'enroll_student'
+                  ? 'bg-violet-600 text-white border-violet-600 shadow-md scale-[1.02]'
+                  : 'bg-gradient-to-br from-violet-50/80 to-slate-50 hover:from-violet-600 hover:to-violet-700 border-violet-100 hover:border-violet-600 hover:text-white shadow-2xs hover:shadow-lg'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors shadow-xs ${
+                  activeTab === 'enroll_student'
+                    ? 'bg-white text-violet-700'
+                    : 'bg-violet-600 text-white group-hover:bg-white group-hover:text-violet-700'
+                }`}>
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider transition-colors ${
+                  activeTab === 'enroll_student'
+                    ? 'bg-violet-800 text-violet-100'
+                    : 'bg-violet-100 group-hover:bg-violet-500 text-violet-800 group-hover:text-white'
+                }`}>
+                  INTAKE
+                </span>
+              </div>
+              <div>
+                <h4 className={`font-extrabold text-xs transition-colors ${
+                  activeTab === 'enroll_student' ? 'text-white' : 'text-slate-900 group-hover:text-white'
+                }`}>
+                  Enroll New Student
+                </h4>
+                <p className={`text-[11px] mt-0.5 line-clamp-2 transition-colors ${
+                  activeTab === 'enroll_student' ? 'text-violet-100' : 'text-slate-500 group-hover:text-violet-100'
+                }`}>
+                  Enter official admission details & submit for approval
+                </p>
+              </div>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('collections_log')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
-            activeTab === 'collections_log'
-              ? 'bg-cyan-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <TrendingUp className="w-4 h-4" />
-          <span>Payment Collections Log</span>
-        </button>
-      </div>
+            {/* Thumbnail 7: Overdue Fee Alerts */}
+            <button
+              onClick={() => setActiveTab('overdue_alerts')}
+              className={`group p-4 rounded-2xl text-left transition-all duration-200 border cursor-pointer flex flex-col justify-between min-h-[140px] space-y-3 ${
+                activeTab === 'overdue_alerts'
+                  ? 'bg-red-600 text-white border-red-600 shadow-md scale-[1.02]'
+                  : 'bg-gradient-to-br from-red-50/80 to-slate-50 hover:from-red-600 hover:to-red-700 border-red-100 hover:border-red-600 hover:text-white shadow-2xs hover:shadow-lg'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors shadow-xs ${
+                  activeTab === 'overdue_alerts'
+                    ? 'bg-white text-red-700'
+                    : 'bg-red-600 text-white group-hover:bg-white group-hover:text-red-700'
+                }`}>
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider transition-colors ${
+                  activeTab === 'overdue_alerts'
+                    ? 'bg-red-800 text-red-100'
+                    : 'bg-red-100 group-hover:bg-red-500 text-red-800 group-hover:text-white'
+                }`}>
+                  ALERTS
+                </span>
+              </div>
+              <div>
+                <h4 className={`font-extrabold text-xs transition-colors ${
+                  activeTab === 'overdue_alerts' ? 'text-white' : 'text-slate-900 group-hover:text-white'
+                }`}>
+                  Overdue Fee Alerts
+                </h4>
+                <p className={`text-[11px] mt-0.5 line-clamp-2 transition-colors ${
+                  activeTab === 'overdue_alerts' ? 'text-red-100' : 'text-slate-500 group-hover:text-red-100'
+                }`}>
+                  Send automated custom reminders via WhatsApp / SMS
+                </p>
+              </div>
+            </button>
+
+            {/* Thumbnail 8: Payment Collections */}
+            <button
+              onClick={() => setActiveTab('collections_log')}
+              className={`group p-4 rounded-2xl text-left transition-all duration-200 border cursor-pointer flex flex-col justify-between min-h-[140px] space-y-3 ${
+                activeTab === 'collections_log'
+                  ? 'bg-cyan-600 text-white border-cyan-600 shadow-md scale-[1.02]'
+                  : 'bg-gradient-to-br from-cyan-50/80 to-slate-50 hover:from-cyan-600 hover:to-cyan-700 border-cyan-100 hover:border-cyan-600 hover:text-white shadow-2xs hover:shadow-lg'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors shadow-xs ${
+                  activeTab === 'collections_log'
+                    ? 'bg-white text-cyan-700'
+                    : 'bg-cyan-600 text-white group-hover:bg-white group-hover:text-cyan-700'
+                }`}>
+                  <TrendingUp className="w-5 h-5" />
+                </div>
+                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider transition-colors ${
+                  activeTab === 'collections_log'
+                    ? 'bg-cyan-800 text-cyan-100'
+                    : 'bg-cyan-100 group-hover:bg-cyan-500 text-cyan-800 group-hover:text-white'
+                }`}>
+                  LOGS
+                </span>
+              </div>
+              <div>
+                <h4 className={`font-extrabold text-xs transition-colors ${
+                  activeTab === 'collections_log' ? 'text-white' : 'text-slate-900 group-hover:text-white'
+                }`}>
+                  Payment Collections
+                </h4>
+                <p className={`text-[11px] mt-0.5 line-clamp-2 transition-colors ${
+                  activeTab === 'collections_log' ? 'text-cyan-100' : 'text-slate-500 group-hover:text-cyan-100'
+                }`}>
+                  Browse full desk collections logs and audit trails
+                </p>
+              </div>
+            </button>
+          </div>
+        </div>
 
       {/* ------------------------------------------------------------- */}
       {/* TAB 1: COLLECT SCHOOL FEES                                    */}
@@ -2232,6 +2567,7 @@ export default function SecretaryPortal({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
