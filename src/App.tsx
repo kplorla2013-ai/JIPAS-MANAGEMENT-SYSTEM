@@ -36,10 +36,23 @@ import {
   saveStoredCalendarEvents,
   saveStoredNotifications,
   getStoredUsers,
+  saveStoredUsers,
+  saveStoredExpenses,
+  saveStoredSecretarySummaries,
+  saveStoredTeacherAttendance,
+  saveStoredFinancialAudits,
+  saveStoredPaymentSettings,
   getStoredClassFeeTariffs,
+  saveStoredClassFeeTariffs,
   getStoredClassBroadcasts,
   saveStoredClassBroadcasts
 } from './services/storageService';
+import {
+  saveStoredPayrollRuns,
+  saveStoredSalaryStructures,
+  saveStoredStaffLoans,
+  saveStoredPayrollSettings
+} from './services/payrollService';
 import LoginScreen from './components/LoginScreen';
 import AdminPortal from './components/AdminPortal';
 import TeacherPortal from './components/TeacherPortal';
@@ -736,13 +749,8 @@ export default function App() {
     }
   };
 
-  const handleRestoreData = async (data: {
-    students?: Student[];
-    teachers?: Teacher[];
-    reports?: TermReport[];
-    bills?: StudentBill[];
-    payments?: PaymentRecord[];
-  }) => {
+  const handleRestoreData = async (data: any) => {
+    // 1. Students & Academic Reports
     if (data.students && Array.isArray(data.students)) {
       setStudents(data.students);
       saveStoredStudents(data.students);
@@ -762,6 +770,65 @@ export default function App() {
     if (data.payments && Array.isArray(data.payments)) {
       setPayments(data.payments);
       saveStoredPayments(data.payments);
+    }
+
+    // 2. All Users (Admins, Teachers, Accountants, Secretary, Students/Parents)
+    if (data.users && Array.isArray(data.users)) {
+      saveStoredUsers(data.users);
+    }
+
+    // 3. Faculty / Teachers Attendance
+    if (data.teacherAttendance && Array.isArray(data.teacherAttendance)) {
+      saveStoredTeacherAttendance(data.teacherAttendance);
+    }
+
+    // 4. Accountant / Bursar Institutional Expenses & Audits
+    if (data.expenses && Array.isArray(data.expenses)) {
+      saveStoredExpenses(data.expenses);
+    }
+    if (data.financialAudits && Array.isArray(data.financialAudits)) {
+      saveStoredFinancialAudits(data.financialAudits);
+    }
+    if (data.classFeeTariffs && Array.isArray(data.classFeeTariffs)) {
+      saveStoredClassFeeTariffs(data.classFeeTariffs);
+    }
+    if (data.paymentSettings && typeof data.paymentSettings === 'object') {
+      saveStoredPaymentSettings(data.paymentSettings);
+    }
+
+    // 5. Staff Payroll & Remuneration Records
+    const payrollData = data.payroll || {};
+    const payrollRuns = data.payrollRuns || payrollData.payrollRuns;
+    if (payrollRuns && Array.isArray(payrollRuns)) {
+      saveStoredPayrollRuns(payrollRuns);
+    }
+    const salaryStructures = data.salaryStructures || payrollData.salaryStructures;
+    if (salaryStructures && Array.isArray(salaryStructures)) {
+      saveStoredSalaryStructures(salaryStructures);
+    }
+    const staffLoans = data.staffLoans || payrollData.staffLoans;
+    if (staffLoans && Array.isArray(staffLoans)) {
+      saveStoredStaffLoans(staffLoans);
+    }
+    const payrollSettings = data.payrollSettings || payrollData.payrollSettings;
+    if (payrollSettings && typeof payrollSettings === 'object') {
+      saveStoredPayrollSettings(payrollSettings);
+    }
+
+    // 6. Secretary Daily Collections & Summaries
+    const secSummaries = data.secretarySummaries || data.secretary?.dailySummaries;
+    if (secSummaries && Array.isArray(secSummaries)) {
+      saveStoredSecretarySummaries(secSummaries);
+    }
+
+    // 7. Calendar Events & Notifications
+    if (data.calendarEvents && Array.isArray(data.calendarEvents)) {
+      setCalendarEvents(data.calendarEvents);
+      saveStoredCalendarEvents(data.calendarEvents);
+    }
+    if (data.notifications && Array.isArray(data.notifications)) {
+      setNotifications(data.notifications);
+      saveStoredNotifications(data.notifications);
     }
   };
 

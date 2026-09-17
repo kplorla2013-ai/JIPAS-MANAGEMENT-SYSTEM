@@ -1,12 +1,53 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Database, HardDrive, Cloud, Download, Upload, RefreshCw, CheckCircle2, 
   AlertTriangle, Shield, Clock, FileJson, ArrowUpRight, Check, Trash2, 
-  FileText, Lock, Sparkles, ExternalLink, Calendar, Users, Layers, AlertCircle, X
+  FileText, Lock, Sparkles, ExternalLink, Calendar, Users, Layers, AlertCircle, X,
+  Briefcase, Receipt, CreditCard, UserCheck, DollarSign, BookOpen
 } from 'lucide-react';
 import { Student, Teacher, TermReport, StudentBill, PaymentRecord, CalendarEvent, NotificationItem } from '../../types';
 import { saveStudent, saveBill, saveReport, savePayment } from '../../services/dbService';
+import { 
+  getStoredUsers,
+  saveStoredUsers,
+  saveStoredStudents,
+  saveStoredTeachers,
+  saveStoredBills,
+  saveStoredPayments,
+  saveStoredReports,
+  getStoredExpenses,
+  saveStoredExpenses,
+  getStoredSecretarySummaries,
+  saveStoredSecretarySummaries,
+  getStoredTeacherAttendance,
+  saveStoredTeacherAttendance,
+  getStoredFinancialAudits,
+  saveStoredFinancialAudits,
+  getStoredClassFeeTariffs,
+  saveStoredClassFeeTariffs,
+  getStoredPaymentSettings,
+  saveStoredPaymentSettings,
+  getStoredStaffSecretCodes,
+  getStoredAcademicYears,
+  getStoredTerms,
+  getStoredDepartments,
+  getStoredCourses,
+  getStoredClasses,
+  getStoredHouses,
+  getStoredSubjects,
+  getStoredClassBroadcasts
+} from '../../services/storageService';
+import {
+  getStoredPayrollRuns,
+  saveStoredPayrollRuns,
+  getStoredSalaryStructures,
+  saveStoredSalaryStructures,
+  getStoredStaffLoans,
+  saveStoredStaffLoans,
+  getStoredPayrollSettings,
+  saveStoredPayrollSettings
+} from '../../services/payrollService';
 import { 
   connectGoogleDrive, 
   disconnectGoogleDrive, 
@@ -28,13 +69,7 @@ interface BackupRecoveryManagerProps {
   payments: PaymentRecord[];
   calendarEvents: CalendarEvent[];
   notifications: NotificationItem[];
-  onRestoreData?: (data: {
-    students?: Student[];
-    teachers?: Teacher[];
-    reports?: TermReport[];
-    bills?: StudentBill[];
-    payments?: PaymentRecord[];
-  }) => void;
+  onRestoreData?: (data: any) => void;
 }
 
 interface LocalSnapshot {
@@ -45,6 +80,11 @@ interface LocalSnapshot {
   studentCount: number;
   reportCount: number;
   paymentCount: number;
+  userCount?: number;
+  teacherCount?: number;
+  expenseCount?: number;
+  secretaryCount?: number;
+  payrollCount?: number;
   data: string;
 }
 
@@ -117,6 +157,133 @@ export default function BackupRecoveryManager({
     item?: any;
   }>({ isOpen: false, source: 'google_drive' });
 
+  // Build complete institutional payload containing all user roles and operational data
+  const buildCompleteBackupPayload = (customMeta: Record<string, any> = {}) => {
+    // 1. All Registered System User Accounts (Teachers, Bursars, Secretaries, Admins, Students)
+    const users = getStoredUsers();
+    const staffSecretCodes = getStoredStaffSecretCodes();
+
+    // 2. Faculty / Teachers & Attendance Scans
+    const teacherAttendance = getStoredTeacherAttendance();
+
+    // 3. Accountant & Bursary Records
+    const expenses = getStoredExpenses();
+    const financialAudits = getStoredFinancialAudits();
+    const classFeeTariffs = getStoredClassFeeTariffs();
+    const paymentSettings = getStoredPaymentSettings();
+    const payrollRuns = getStoredPayrollRuns();
+    const salaryStructures = getStoredSalaryStructures();
+    const staffLoans = getStoredStaffLoans();
+    const payrollSettings = getStoredPayrollSettings();
+
+    // 4. Secretary Daily Collections & Desk Records
+    const secretarySummaries = getStoredSecretarySummaries();
+
+    // 5. Academic & Institutional Infrastructure
+    const academicYears = getStoredAcademicYears();
+    const terms = getStoredTerms();
+    const departments = getStoredDepartments();
+    const courses = getStoredCourses();
+    const classes = getStoredClasses();
+    const houses = getStoredHouses();
+    const subjects = getStoredSubjects();
+    const classBroadcasts = getStoredClassBroadcasts();
+
+    const adminsCount = users.filter(u => u.role === 'admin' || u.role === 'sub_admin').length;
+    const teachersCount = users.filter(u => u.role === 'teacher').length;
+    const accountantsCount = users.filter(u => u.role === 'accountant' || u.role === 'sub_accountant').length;
+    const secretariesCount = users.filter(u => u.role === 'secretary').length;
+    const studentsCount = users.filter(u => u.role === 'student').length;
+
+    return {
+      meta: {
+        system: 'JIPAS Institutional Management System',
+        version: '2026.3.2',
+        schema: 'jipas_all_users_enterprise_v2',
+        exportedAt: new Date().toISOString(),
+        schoolMotto: 'Education is Wealth',
+        description: 'Complete institutional backup including all user roles (teachers, accountant/bursar, secretary, admin, student), financial ledgers, expenses, payroll, attendance, and academics.',
+        ...customMeta
+      },
+      data: {
+        // All System Users (Full user accounts across all roles)
+        users,
+        staffSecretCodes,
+
+        // Faculty & Teachers
+        teachers,
+        teacherAttendance,
+
+        // Accountant / Bursary Data
+        bills,
+        payments,
+        expenses,
+        financialAudits,
+        classFeeTariffs,
+        paymentSettings,
+        payrollRuns,
+        salaryStructures,
+        staffLoans,
+        payrollSettings,
+        payroll: {
+          payrollRuns,
+          salaryStructures,
+          staffLoans,
+          payrollSettings
+        },
+
+        // Secretary Front Desk Records & Daily Summaries
+        secretarySummaries,
+        secretary: {
+          dailySummaries: secretarySummaries,
+          deskCollections: payments.filter(p => (p as any).recorderRole === 'secretary' || (p as any).recordedBy?.toLowerCase().includes('secretary') || p.collectorRole === 'secretary' || p.collectedBy?.toLowerCase().includes('secretary')),
+          deskExpenses: expenses.filter(e => e.recorderRole === 'secretary' || e.recordedBy?.toLowerCase().includes('secretary'))
+        },
+
+        // Students & Academic Terminal Records
+        students,
+        reports,
+        classBroadcasts,
+
+        // Academic Configuration
+        academicSetup: {
+          academicYears,
+          terms,
+          departments,
+          courses,
+          classes,
+          houses,
+          subjects
+        },
+
+        // Schedules & Alerts
+        calendarEvents,
+        notifications
+      },
+      counts: {
+        totalUsers: users.length,
+        userRoles: {
+          admins: adminsCount,
+          teachers: teachersCount,
+          accountants: accountantsCount,
+          secretaries: secretariesCount,
+          students: studentsCount
+        },
+        teachers: teachers.length,
+        teacherAttendance: teacherAttendance.length,
+        students: students.length,
+        reports: reports.length,
+        bills: bills.length,
+        payments: payments.length,
+        expenses: expenses.length,
+        secretarySummaries: secretarySummaries.length,
+        payrollRuns: payrollRuns.length,
+        financialAudits: financialAudits.length,
+        calendarEvents: calendarEvents.length
+      }
+    };
+  };
+
   // Load existing snapshots from localStorage on mount
   useEffect(() => {
     try {
@@ -124,15 +291,23 @@ export default function BackupRecoveryManager({
       if (saved) {
         setSnapshots(JSON.parse(saved));
       } else {
+        const payload = buildCompleteBackupPayload({ type: 'Baseline System Snapshot (Auto)' });
+        const jsonStr = JSON.stringify(payload);
+        const allUsers = getStoredUsers();
         const initialSnap: LocalSnapshot = {
           id: `snap-${Date.now()}`,
           timestamp: new Date().toLocaleString(),
-          name: 'Baseline System Snapshot (Auto)',
-          sizeKb: 145,
+          name: 'Baseline System Snapshot (All Users & Records)',
+          sizeKb: Math.max(1, Math.round(jsonStr.length / 1024)),
           studentCount: students.length,
           reportCount: reports.length,
           paymentCount: payments.length,
-          data: JSON.stringify({ students, teachers, reports, bills, payments })
+          userCount: allUsers.length,
+          teacherCount: teachers.length,
+          expenseCount: getStoredExpenses().length,
+          secretaryCount: getStoredSecretarySummaries().length,
+          payrollCount: getStoredPayrollRuns().length,
+          data: jsonStr
         };
         setSnapshots([initialSnap]);
         localStorage.setItem('jipas_local_snapshots', JSON.stringify([initialSnap]));
@@ -151,36 +326,14 @@ export default function BackupRecoveryManager({
   // LOCAL BACKUP HANDLERS
   // ========================================================
 
-  // 1. Generate Full Local Backup JSON & Download
+  // 1. Generate Full Local Backup JSON & Download (All Users & Records)
   const handleExportLocalBackup = () => {
     setIsExporting(true);
     try {
-      const backupPayload = {
-        meta: {
-          system: 'JIPAS School Management System',
-          version: '2026.3.1',
-          exportedAt: new Date().toISOString(),
-          schoolMotto: 'Education is Wealth',
-          environment: 'Local & Cloud Sync'
-        },
-        data: {
-          students,
-          teachers,
-          reports,
-          bills,
-          payments,
-          calendarEvents,
-          notifications
-        },
-        counts: {
-          students: students.length,
-          teachers: teachers.length,
-          reports: reports.length,
-          bills: bills.length,
-          payments: payments.length,
-          events: calendarEvents.length
-        }
-      };
+      const backupPayload = buildCompleteBackupPayload({
+        environment: 'Local Workstation Archive',
+        exportType: 'Complete All-Users Institutional Backup'
+      });
 
       const jsonStr = JSON.stringify(backupPayload, null, 2);
       const blob = new Blob([jsonStr], { type: 'application/json' });
@@ -188,21 +341,27 @@ export default function BackupRecoveryManager({
       const link = document.createElement('a');
       const dateStr = new Date().toISOString().slice(0, 10);
       link.href = url;
-      link.download = `jipas_complete_backup_${dateStr}.json`;
+      link.download = `jipas_complete_all_users_backup_${dateStr}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
+      const allUsers = getStoredUsers();
       // Save a local snapshot as well
       const newSnap: LocalSnapshot = {
         id: `snap-${Date.now()}`,
         timestamp: new Date().toLocaleString(),
-        name: `Manual Backup Download (${dateStr})`,
+        name: `Full Multi-Role Backup (${dateStr})`,
         sizeKb: Math.round(jsonStr.length / 1024),
         studentCount: students.length,
         reportCount: reports.length,
         paymentCount: payments.length,
+        userCount: allUsers.length,
+        teacherCount: teachers.length,
+        expenseCount: getStoredExpenses().length,
+        secretaryCount: getStoredSecretarySummaries().length,
+        payrollCount: getStoredPayrollRuns().length,
         data: jsonStr
       };
 
@@ -210,7 +369,7 @@ export default function BackupRecoveryManager({
       setSnapshots(updated);
       localStorage.setItem('jipas_local_snapshots', JSON.stringify(updated));
 
-      showNotice('Full local backup successfully downloaded to your computer and logged in local snapshots!');
+      showNotice(`Full backup downloaded! Included all ${allUsers.length} user accounts, ${teachers.length} teachers, ${payments.length} bursary receipts, expenses, payroll & secretary records.`);
     } catch (err: any) {
       alert(`Backup failed: ${err?.message || 'Unknown error'}`);
     } finally {
@@ -247,6 +406,117 @@ export default function BackupRecoveryManager({
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  // 1. All Users CSV
+  const handleExportAllUsersCSV = () => {
+    const users = getStoredUsers();
+    const rows = users.map(u => ({
+      'User ID': u.id,
+      'Full Name': u.name,
+      'System Role': u.role.toUpperCase(),
+      'Username': u.username,
+      'Email Address': u.email || 'N/A',
+      'Phone Number': u.phone || 'N/A',
+      'Department': u.department || 'N/A',
+      'Status': u.status || 'Active',
+      'Account Created': u.createdAt || 'N/A',
+      'Last Login': u.lastLogin || 'N/A',
+      'Registration Type': u.registrationType || 'Staff',
+      'Privileges': u.accountantPrivileges ? 'Configured' : 'Default'
+    }));
+    const dateStr = new Date().toISOString().slice(0, 10);
+    downloadCSV(`jipas_all_users_directory_${dateStr}.csv`, rows);
+    showNotice(`Successfully exported ${users.length} registered user accounts (Teachers, Accountants, Secretary, Admin, Students) as CSV.`);
+  };
+
+  // 2. Teachers & Attendance CSV
+  const handleExportTeachersAttendanceCSV = () => {
+    const attendance = getStoredTeacherAttendance();
+    const rows = teachers.map(t => {
+      const tAttendance = attendance.filter(a => a.teacherId === t.id);
+      return {
+        'Staff ID': t.staffId || t.id,
+        'Teacher Name': t.name,
+        'Email Address': t.email || 'N/A',
+        'Phone': t.phone || 'N/A',
+        'Gender': t.gender || 'N/A',
+        'Department': t.department || 'N/A',
+        'Designation': t.designation || 'Class Teacher',
+        'Academic Rank': t.rank || 'N/A',
+        'Assigned Classes': ((t as any).classesTeaching || t.classesTaught || []).join('; '),
+        'Assigned Subjects': ((t as any).subjectsTeaching || t.subjectsTaught || []).join('; '),
+        'Total Clock-ins': tAttendance.length,
+        'Last Attendance Date': tAttendance[tAttendance.length - 1]?.date || 'None',
+        'Last Clock-in Time': tAttendance[tAttendance.length - 1]?.timeIn || 'None'
+      };
+    });
+    const dateStr = new Date().toISOString().slice(0, 10);
+    downloadCSV(`jipas_teachers_attendance_roster_${dateStr}.csv`, rows);
+    showNotice(`Successfully exported ${teachers.length} faculty profiles and attendance logs as CSV.`);
+  };
+
+  // 3. Accountant & Bursary Ledger CSV
+  const handleExportBursaryLedgerCSV = () => {
+    const expenses = getStoredExpenses();
+    const rows: Record<string, any>[] = [];
+
+    // Payments / Receipts
+    payments.forEach(p => {
+      rows.push({
+        'Record Type': 'Fee Receipt (Income)',
+        'Reference No': p.receiptNo || p.id,
+        'Payer / Beneficiary': p.studentName,
+        'Class / Category': p.className,
+        'Amount (GHS)': p.amount ?? p.paid,
+        'Payment Method': p.method,
+        'Date': p.date,
+        'Term / Period': p.term || 'N/A',
+        'Recorded By': (p as any).recordedBy || p.collectedBy || p.receivedBy || 'Accounts Desk',
+        'Status': p.status || 'Verified'
+      });
+    });
+
+    // Expenses
+    expenses.forEach(e => {
+      rows.push({
+        'Record Type': 'Institutional Expense',
+        'Reference No': e.referenceNo || e.id,
+        'Payer / Beneficiary': e.vendorPayee || (e as any).recipient || (e as any).paidTo || e.title,
+        'Class / Category': e.category,
+        'Amount (GHS)': e.amount,
+        'Payment Method': e.paymentMethod,
+        'Date': e.date,
+        'Term / Period': e.term || 'Current',
+        'Recorded By': `${e.recordedBy || 'Bursar'} (${e.recorderRole || 'Finance'})`,
+        'Status': e.status || 'Approved'
+      });
+    });
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    downloadCSV(`jipas_bursary_financial_ledger_${dateStr}.csv`, rows);
+    showNotice(`Successfully exported comprehensive bursary ledger (${payments.length} fee receipts & ${expenses.length} expense vouchers) as CSV.`);
+  };
+
+  // 4. Secretary Daily Summaries CSV
+  const handleExportSecretarySummariesCSV = () => {
+    const summaries = getStoredSecretarySummaries();
+    const rows = summaries.map(s => ({
+      'Summary ID': s.id,
+      'Date': s.date,
+      'Secretary Name': s.secretaryName,
+      'Total Receipts Issued': (s as any).totalReceiptsIssued || s.receiptsCount || s.transactionCount || 0,
+      'Gross Fees Collected (GHS)': s.totalFeesCollected,
+      'Desk Expenses (GHS)': s.totalExpensesLogged,
+      'Net Cash Handover (GHS)': s.netCashOnHand,
+      'Handover Status': (s as any).status || (s.isReconciledWithBursar ? 'Reconciled' : 'Pending Handover'),
+      'Handover Time': (s as any).handoverTimestamp ? new Date((s as any).handoverTimestamp).toLocaleString() : (s.reconciledAt || 'N/A'),
+      'Accountant Received': (s as any).accountantReceivedBy || s.reconciledBy || 'Pending',
+      'Audit / Reconciliation Notes': s.notes || s.reconciliationNotes || 'None'
+    }));
+    const dateStr = new Date().toISOString().slice(0, 10);
+    downloadCSV(`jipas_secretary_daily_summaries_${dateStr}.csv`, rows);
+    showNotice(`Successfully exported ${summaries.length} secretary daily collection and handover records as CSV.`);
   };
 
   const handleExportStudentsCSV = () => {
@@ -314,40 +584,44 @@ export default function BackupRecoveryManager({
   };
 
   const handleExportAllCSVBundle = () => {
-    handleExportStudentsCSV();
-    setTimeout(() => handleExportAcademicRecordsCSV(), 600);
-    setTimeout(() => handleExportFinancialsCSV(), 1200);
-    showNotice('All CSV/Excel archiving spreadsheets (Students, Academic Records, and Financials) generated successfully!');
+    handleExportAllUsersCSV();
+    setTimeout(() => handleExportTeachersAttendanceCSV(), 300);
+    setTimeout(() => handleExportBursaryLedgerCSV(), 600);
+    setTimeout(() => handleExportSecretarySummariesCSV(), 900);
+    setTimeout(() => handleExportStudentsCSV(), 1200);
+    setTimeout(() => handleExportAcademicRecordsCSV(), 1500);
+    showNotice('Complete institutional CSV bundle (Users, Teachers, Bursary, Secretary, Students, Reports) generated successfully!');
   };
 
   // 2. Capture Snapshot to localStorage manually
   const handleCaptureInstantSnapshot = () => {
     try {
-      const payload = {
-        meta: {
-          system: 'JIPAS School Management System',
-          createdAt: new Date().toISOString(),
-          type: 'Manual Local Recovery Point'
-        },
-        data: { students, teachers, reports, bills, payments }
-      };
-
+      const payload = buildCompleteBackupPayload({
+        type: 'Manual Local Recovery Point'
+      });
       const jsonStr = JSON.stringify(payload);
+      const allUsers = getStoredUsers();
+
       const newSnap: LocalSnapshot = {
         id: `snap-${Date.now()}`,
         timestamp: new Date().toLocaleString(),
-        name: `Recovery Point #${snapshots.length + 1} (${new Date().toLocaleTimeString()})`,
-        sizeKb: Math.round(jsonStr.length / 1024),
+        name: `All-Users Recovery Point #${snapshots.length + 1} (${new Date().toLocaleTimeString()})`,
+        sizeKb: Math.max(1, Math.round(jsonStr.length / 1024)),
         studentCount: students.length,
         reportCount: reports.length,
         paymentCount: payments.length,
+        userCount: allUsers.length,
+        teacherCount: teachers.length,
+        expenseCount: getStoredExpenses().length,
+        secretaryCount: getStoredSecretarySummaries().length,
+        payrollCount: getStoredPayrollRuns().length,
         data: jsonStr
       };
 
       const updated = [newSnap, ...snapshots.slice(0, 9)];
       setSnapshots(updated);
       localStorage.setItem('jipas_local_snapshots', JSON.stringify(updated));
-      showNotice(`Captured instant local snapshot "${newSnap.name}"!`);
+      showNotice(`Captured instant snapshot "${newSnap.name}" with all ${allUsers.length} users, faculty, bursary, and secretary data.`);
     } catch (err: any) {
       alert(`Failed to save local snapshot: ${err?.message}`);
     }
@@ -367,20 +641,36 @@ export default function BackupRecoveryManager({
         const parsed = JSON.parse(text);
 
         const data = parsed.data || parsed;
-        if (!data.students && !Array.isArray(parsed)) {
-          throw new Error('Invalid JIPAS backup format: Missing student dataset.');
+        if (!data.students && !data.users && !Array.isArray(parsed)) {
+          throw new Error('Invalid JIPAS backup format: Missing core institutional datasets.');
         }
+
+        const uCount = Array.isArray(data.users) ? data.users.length : 0;
+        const tCount = Array.isArray(data.teachers) ? data.teachers.length : 0;
+        const tAttCount = Array.isArray(data.teacherAttendance) ? data.teacherAttendance.length : 0;
+        const sCount = Array.isArray(data.students) ? data.students.length : 0;
+        const rCount = Array.isArray(data.reports) ? data.reports.length : 0;
+        const bCount = Array.isArray(data.bills) ? data.bills.length : 0;
+        const pCount = Array.isArray(data.payments) ? data.payments.length : 0;
+        const expCount = Array.isArray(data.expenses) ? data.expenses.length : 0;
+        const secCount = Array.isArray(data.secretarySummaries) ? data.secretarySummaries.length : (Array.isArray(data.secretary?.dailySummaries) ? data.secretary.dailySummaries.length : 0);
+        const payCount = Array.isArray(data.payrollRuns) ? data.payrollRuns.length : (Array.isArray(data.payroll?.payrollRuns) ? data.payroll.payrollRuns.length : 0);
 
         setRestorePreview({
           fileName: file.name,
-          fileSizeKb: Math.round(file.size / 1024),
+          fileSizeKb: Math.max(1, Math.round(file.size / 1024)),
           meta: parsed.meta || { exportedAt: 'Unknown', system: 'Legacy JIPAS' },
           data: data,
-          studentCount: Array.isArray(data.students) ? data.students.length : 0,
-          teacherCount: Array.isArray(data.teachers) ? data.teachers.length : 0,
-          reportCount: Array.isArray(data.reports) ? data.reports.length : 0,
-          billCount: Array.isArray(data.bills) ? data.bills.length : 0,
-          paymentCount: Array.isArray(data.payments) ? data.payments.length : 0,
+          userCount: uCount,
+          teacherCount: tCount,
+          teacherAttendanceCount: tAttCount,
+          studentCount: sCount,
+          reportCount: rCount,
+          billCount: bCount,
+          paymentCount: pCount,
+          expenseCount: expCount,
+          secretarySummaryCount: secCount,
+          payrollCount: payCount
         });
       } catch (err: any) {
         setRestoreError(err?.message || 'Failed to parse JSON backup file.');
@@ -408,7 +698,7 @@ export default function BackupRecoveryManager({
     });
   };
 
-  // 6. Execute Confirmed Restore
+  // 6. Execute Confirmed Restore (All User Records)
   const executeConfirmedRestore = async () => {
     const { source, item } = confirmRestoreModal;
     setConfirmRestoreModal({ isOpen: false, source: 'local_file' });
@@ -428,7 +718,7 @@ export default function BackupRecoveryManager({
           dataToRestore = fetched.data || fetched;
         } else {
           // Demo fallback items
-          dataToRestore = { students, teachers, reports, bills, payments };
+          dataToRestore = buildCompleteBackupPayload().data;
         }
       }
 
@@ -436,15 +726,83 @@ export default function BackupRecoveryManager({
         throw new Error('No dataset could be extracted for recovery.');
       }
 
-      // Apply to in-memory state
+      // 1. In-memory & reactive app state update
       if (onRestoreData) {
         onRestoreData({
           students: dataToRestore.students,
           teachers: dataToRestore.teachers,
           reports: dataToRestore.reports,
           bills: dataToRestore.bills,
-          payments: dataToRestore.payments
+          payments: dataToRestore.payments,
+          users: dataToRestore.users,
+          teacherAttendance: dataToRestore.teacherAttendance,
+          expenses: dataToRestore.expenses,
+          secretarySummaries: dataToRestore.secretarySummaries || dataToRestore.secretary?.dailySummaries,
+          financialAudits: dataToRestore.financialAudits,
+          payrollRuns: dataToRestore.payrollRuns || dataToRestore.payroll?.payrollRuns,
+          salaryStructures: dataToRestore.salaryStructures || dataToRestore.payroll?.salaryStructures,
+          staffLoans: dataToRestore.staffLoans || dataToRestore.payroll?.staffLoans,
+          payrollSettings: dataToRestore.payrollSettings || dataToRestore.payroll?.payrollSettings,
+          classFeeTariffs: dataToRestore.classFeeTariffs,
+          paymentSettings: dataToRestore.paymentSettings,
+          calendarEvents: dataToRestore.calendarEvents,
+          notifications: dataToRestore.notifications
         });
+      }
+
+      // 2. Direct persistence across storage
+      if (Array.isArray(dataToRestore.users)) {
+        saveStoredUsers(dataToRestore.users);
+      }
+      if (Array.isArray(dataToRestore.teachers)) {
+        saveStoredTeachers(dataToRestore.teachers);
+      }
+      if (Array.isArray(dataToRestore.teacherAttendance)) {
+        saveStoredTeacherAttendance(dataToRestore.teacherAttendance);
+      }
+      if (Array.isArray(dataToRestore.students)) {
+        saveStoredStudents(dataToRestore.students);
+      }
+      if (Array.isArray(dataToRestore.bills)) {
+        saveStoredBills(dataToRestore.bills);
+      }
+      if (Array.isArray(dataToRestore.payments)) {
+        saveStoredPayments(dataToRestore.payments);
+      }
+      if (Array.isArray(dataToRestore.reports)) {
+        saveStoredReports(dataToRestore.reports);
+      }
+      if (Array.isArray(dataToRestore.expenses)) {
+        saveStoredExpenses(dataToRestore.expenses);
+      }
+      const secData = dataToRestore.secretarySummaries || dataToRestore.secretary?.dailySummaries;
+      if (Array.isArray(secData)) {
+        saveStoredSecretarySummaries(secData);
+      }
+      if (Array.isArray(dataToRestore.financialAudits)) {
+        saveStoredFinancialAudits(dataToRestore.financialAudits);
+      }
+      const pRuns = dataToRestore.payrollRuns || dataToRestore.payroll?.payrollRuns;
+      if (Array.isArray(pRuns)) {
+        saveStoredPayrollRuns(pRuns);
+      }
+      const salStructs = dataToRestore.salaryStructures || dataToRestore.payroll?.salaryStructures;
+      if (Array.isArray(salStructs)) {
+        saveStoredSalaryStructures(salStructs);
+      }
+      const stLoans = dataToRestore.staffLoans || dataToRestore.payroll?.staffLoans;
+      if (Array.isArray(stLoans)) {
+        saveStoredStaffLoans(stLoans);
+      }
+      const pSettings = dataToRestore.payrollSettings || dataToRestore.payroll?.payrollSettings;
+      if (pSettings && typeof pSettings === 'object') {
+        saveStoredPayrollSettings(pSettings);
+      }
+      if (Array.isArray(dataToRestore.classFeeTariffs)) {
+        saveStoredClassFeeTariffs(dataToRestore.classFeeTariffs);
+      }
+      if (dataToRestore.paymentSettings && typeof dataToRestore.paymentSettings === 'object') {
+        saveStoredPaymentSettings(dataToRestore.paymentSettings);
       }
 
       // Sync key records to Firestore Cloud Database
@@ -459,7 +817,7 @@ export default function BackupRecoveryManager({
         }
       }
 
-      showNotice(`Restoration successful! Restored school records from ${source.replace('_', ' ').toUpperCase()}.`);
+      showNotice(`Restoration successful! Restored all user records (Teachers, Accountants, Secretary, Admins), bursary ledgers, payroll, and academic registry.`);
       setRestorePreview(null);
     } catch (err: any) {
       alert(`Recovery failed: ${err?.message || 'Error occurred while restoring records.'}`);
@@ -544,7 +902,7 @@ export default function BackupRecoveryManager({
     }
   };
 
-  // Upload Backup to Google Drive
+  // Upload Backup to Google Drive (All Users & Operational Data)
   const handleUploadToGoogleDrive = async () => {
     if (!isDriveConnectedState) {
       await handleConnectDrive();
@@ -553,39 +911,19 @@ export default function BackupRecoveryManager({
 
     setIsUploadingToDrive(true);
     try {
-      const backupPayload = {
-        meta: {
-          system: 'JIPAS School Management System',
-          cloudStorage: 'Google Drive Workspace Integration',
-          version: '2026.3.1',
-          exportedAt: new Date().toISOString(),
-          account: driveUser?.email || 'admin@jipas.com'
-        },
-        data: {
-          students,
-          teachers,
-          reports,
-          bills,
-          payments,
-          calendarEvents,
-          notifications
-        },
-        counts: {
-          students: students.length,
-          teachers: teachers.length,
-          reports: reports.length,
-          bills: bills.length,
-          payments: payments.length
-        }
-      };
+      const backupPayload = buildCompleteBackupPayload({
+        cloudStorage: 'Google Drive Enterprise Vault',
+        exportType: 'All-Users Multi-Role Institutional Backup',
+        account: driveUser?.email || 'admin@jipas.com'
+      });
 
       const dateStr = new Date().toISOString().slice(0, 10);
       const timeStr = `${String(new Date().getHours()).padStart(2, '0')}${String(new Date().getMinutes()).padStart(2, '0')}`;
-      const fileName = `jipas_cloud_backup_${dateStr}_${timeStr}.json`;
+      const fileName = `jipas_cloud_all_users_backup_${dateStr}_${timeStr}.json`;
 
       const uploaded = await uploadBackupToDrive(backupPayload, fileName);
       setDriveBackups(prev => [uploaded, ...prev]);
-      showNotice(`Backup snapshot successfully created and saved directly to your Google Drive: "${uploaded.name}"`);
+      showNotice(`Full backup snapshot saved to Google Drive: "${uploaded.name}" (Includes all user accounts, teachers, bursar, secretary, and students).`);
     } catch (err: any) {
       alert(`Google Drive upload failed: ${err?.message}`);
     } finally {

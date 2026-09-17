@@ -899,3 +899,12 @@ export function saveStoredPayrollRuns(runs: any[]): void {
   writeStorage('jipas_payroll_runs', runs);
 }
 
+// Accountant Privileges Getters & Setters
+export function getStoredAccountantPrivileges(): AccountantPrivilegesConfig {
+  return readStorage<AccountantPrivilegesConfig>(STORAGE_KEYS.ACCOUNTANT_PRIVILEGES, DEFAULT_ACCOUNTANT_PRIVILEGES);
+}
+
+export function saveStoredAccountantPrivileges(config: AccountantPrivilegesConfig): void {
+  writeStorage(STORAGE_KEYS.ACCOUNTANT_PRIVILEGES, config);
+}
+
