@@ -16,6 +16,7 @@ interface GlobalSearchHeaderProps {
   onNavigate: (moduleId: string, tabId?: string) => void;
   placeholder?: string;
   className?: string;
+  userRole?: 'admin' | 'accountant' | 'teacher' | 'secretary' | 'student';
 }
 
 export default function GlobalSearchHeader({
@@ -27,7 +28,8 @@ export default function GlobalSearchHeader({
   navGroups,
   onNavigate,
   placeholder = "Search students, teachers, bills, receipts, settings...",
-  className = ""
+  className = "",
+  userRole = "admin"
 }: GlobalSearchHeaderProps) {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -70,9 +72,10 @@ export default function GlobalSearchHeader({
       bills,
       payments,
       navGroups,
-      classFeeTariffs
+      classFeeTariffs,
+      userRole
     });
-  }, [query, students, teachers, bills, payments, navGroups, classFeeTariffs]);
+  }, [query, students, teachers, bills, payments, navGroups, classFeeTariffs, userRole]);
 
   const handleSelectResult = (item: GlobalSearchResultItem) => {
     if (item.actionModuleId) {
@@ -155,30 +158,46 @@ export default function GlobalSearchHeader({
                 >
                   All ({searchResults.totalCount})
                 </button>
-                <button
-                  onClick={() => setActiveTab('students')}
-                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                    activeTab === 'students' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs' : 'bg-[#0B152E] text-slate-400 hover:text-white border border-blue-900/40'
-                  }`}
-                >
-                  Students ({searchResults.students.length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('teachers')}
-                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                    activeTab === 'teachers' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs' : 'bg-[#0B152E] text-slate-400 hover:text-white border border-blue-900/40'
-                  }`}
-                >
-                  Teachers ({searchResults.teachers.length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('financial')}
-                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                    activeTab === 'financial' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs' : 'bg-[#0B152E] text-slate-400 hover:text-white border border-blue-900/40'
-                  }`}
-                >
-                  Financial ({searchResults.financial.length})
-                </button>
+                {(userRole === 'admin' || userRole === 'accountant' || userRole === 'teacher' || userRole === 'secretary') && (
+                  <button
+                    onClick={() => setActiveTab('students')}
+                    className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                      activeTab === 'students' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs' : 'bg-[#0B152E] text-slate-400 hover:text-white border border-blue-900/40'
+                    }`}
+                  >
+                    Students ({searchResults.students.length})
+                  </button>
+                )}
+                {(userRole === 'admin' || userRole === 'teacher') && (
+                  <button
+                    onClick={() => setActiveTab('teachers')}
+                    className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                      activeTab === 'teachers' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs' : 'bg-[#0B152E] text-slate-400 hover:text-white border border-blue-900/40'
+                    }`}
+                  >
+                    Teachers ({searchResults.teachers.length})
+                  </button>
+                )}
+                {(userRole === 'admin' || userRole === 'accountant' || userRole === 'secretary') && (
+                  <button
+                    onClick={() => setActiveTab('financial')}
+                    className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                      activeTab === 'financial' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs' : 'bg-[#0B152E] text-slate-400 hover:text-white border border-blue-900/40'
+                    }`}
+                  >
+                    Financial ({searchResults.financial.length})
+                  </button>
+                )}
+                {userRole === 'admin' && (
+                  <button
+                    onClick={() => setActiveTab('settings')}
+                    className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                      activeTab === 'settings' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs' : 'bg-[#0B152E] text-slate-400 hover:text-white border border-blue-900/40'
+                    }`}
+                  >
+                    Settings ({searchResults.settings.length})
+                  </button>
+                )}
               </div>
             </div>
 

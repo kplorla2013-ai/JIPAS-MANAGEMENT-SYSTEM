@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { 
   CreditCard, Plus, Pencil, Trash2, DollarSign, Receipt, Printer, 
   Download, Search, CheckCircle2, AlertTriangle, ArrowUpRight, ArrowDownRight, 
-  FileText, ShieldCheck, Filter, TrendingUp, Wallet, Check, Send
+  FileText, ShieldCheck, Filter, TrendingUp, Wallet, Check, Send,
+  Users, Building2, BookOpen, User
 } from 'lucide-react';
 import { 
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, 
@@ -14,6 +15,7 @@ import PaidAsSelector from '../common/PaidAsSelector';
 import FeesSettingsManager from '../common/FeesSettingsManager';
 import OverdueFeeAlertsManager from './OverdueFeeAlertsManager';
 import { INITIAL_FEE_OPTIONS_DATA } from '../../data/feeDescriptions';
+import { getStoredDepartments, getStoredClasses } from '../../services/storageService';
 
 interface FeeManagerProps {
   activeModule: string;
@@ -84,6 +86,107 @@ export default function FeeManager({
   const [collectPaidAs, setCollectPaidAs] = useState('Tuition Fee (Full Term Payment)');
   const [collectRef, setCollectRef] = useState('');
   const [collectToast, setCollectToast] = useState(false);
+
+  // Hierarchical Filter States for Fee Payment
+  const [paymentDept, setPaymentDept] = useState<string>('All');
+  const [customDeptInput, setCustomDeptInput] = useState<string>('');
+  const [paymentClass, setPaymentClass] = useState<string>('All');
+  const [studentRosterSearch, setStudentRosterSearch] = useState<string>('');
+
+  // Extract departments from stored data and student records
+  const availableDepartments = React.useMemo(() => {
+    const stored = getStoredDepartments().map(d => d.name);
+    const fromStudents = students.map(s => s.department).filter(Boolean);
+    const list = Array.from(new Set([...stored, ...fromStudents]));
+    return list.length > 0 ? list : ['Pre School', 'Primary School', 'Junior High School', 'Senior High School'];
+  }, [students]);
+
+  // Extract classes (filtered by selected department if not 'All')
+  const availableClasses = React.useMemo(() => {
+    const allStoredClasses = getStoredClasses();
+    const effectiveDept = customDeptInput.trim() || paymentDept;
+    
+    if (effectiveDept && effectiveDept !== 'All') {
+      const matchingStored = allStoredClasses.filter(c => {
+        const deptItem = getStoredDepartments().find(d => d.name === effectiveDept || d.name === c.department || d.id === (c as any).departmentId);
+        return (c.department && c.department.toLowerCase() === effectiveDept.toLowerCase()) ||
+               (deptItem && (c as any).departmentId === deptItem.id) ||
+               ((c as any).departmentName === effectiveDept);
+      }).map(c => c.name);
+
+      const matchingFromStudents = students
+        .filter(s => s.department?.toLowerCase() === effectiveDept.toLowerCase())
+        .map(s => s.className)
+        .filter(Boolean);
+
+      let classList = Array.from(new Set([...matchingStored, ...matchingFromStudents]));
+
+      if (classList.length === 0) {
+        const lower = effectiveDept.toLowerCase();
+        if (lower.includes('primary')) {
+          classList = ['Basic 1', 'Basic 2', 'Basic 3', 'Basic 4', 'Basic 5', 'Basic 6'];
+        } else if (lower.includes('junior') || lower.includes('jhs')) {
+          classList = ['JHS 1', 'JHS 2', 'JHS 3'];
+        } else if (lower.includes('pre') || lower.includes('nursery') || lower.includes('creche') || lower.includes('kg')) {
+          classList = ['Creche', 'Nursery 1', 'Nursery 2', 'KG 1', 'KG 2'];
+        } else if (lower.includes('senior') || lower.includes('shs')) {
+          classList = ['SHS 1', 'SHS 2', 'SHS 3'];
+        }
+      }
+
+      if (classList.length > 0) return classList;
+    }
+
+    const allStudentClasses = students.map(s => s.className).filter(Boolean);
+    return Array.from(new Set([...allStoredClasses.map(c => c.name), ...allStudentClasses]));
+  }, [students, paymentDept, customDeptInput]);
+
+  // Filtered students for fee payment based on department, class, and name search
+  const filteredStudentsForPayment = React.useMemo(() => {
+    const effectiveDept = customDeptInput.trim() || paymentDept;
+
+    return students.filter(st => {
+      // Department filter
+      if (effectiveDept && effectiveDept !== 'All') {
+        const deptMatches = 
+          (st.department && st.department.toLowerCase().includes(effectiveDept.toLowerCase())) ||
+          (effectiveDept.toLowerCase().includes('primary') && st.className?.toLowerCase().includes('basic')) ||
+          (effectiveDept.toLowerCase().includes('junior') && st.className?.toLowerCase().includes('jhs')) ||
+          (effectiveDept.toLowerCase().includes('pre') && (st.className?.toLowerCase().includes('kg') || st.className?.toLowerCase().includes('nursery') || st.className?.toLowerCase().includes('creche'))) ||
+          (effectiveDept.toLowerCase().includes('senior') && st.className?.toLowerCase().includes('shs'));
+        if (!deptMatches) return false;
+      }
+
+      // Class level filter
+      if (paymentClass !== 'All') {
+        if (st.className !== paymentClass) return false;
+      }
+
+      // Search query (search students by name, admission no, or roll no)
+      if (studentRosterSearch.trim()) {
+        const query = studentRosterSearch.toLowerCase();
+        const matchesName = st.fullName.toLowerCase().includes(query);
+        const matchesAdm = st.admissionNo.toLowerCase().includes(query);
+        const matchesRoll = st.rollNo?.toLowerCase().includes(query);
+        if (!matchesName && !matchesAdm && !matchesRoll) return false;
+      }
+
+      return true;
+    });
+  }, [students, paymentDept, customDeptInput, paymentClass, studentRosterSearch]);
+
+  const handleStudentSelect = (studentId: string) => {
+    setCollectStudentId(studentId);
+    const bill = billsList.find(b => b.studentId === studentId || b.admissionNo === students.find(s => s.id === studentId)?.admissionNo);
+    if (bill && bill.balance > 0) {
+      setCollectAmount(bill.balance);
+    } else {
+      setCollectAmount(715);
+    }
+  };
+
+  const selectedStudent = students.find(s => s.id === collectStudentId) || students[0];
+  const selectedBill = billsList.find(b => b.studentId === selectedStudent?.id || b.admissionNo === selectedStudent?.admissionNo);
 
   // Income Expense Form State
   const [ieType, setIeType] = useState<'Income' | 'Expense'>('Income');
@@ -398,16 +501,166 @@ export default function FeeManager({
 
       {/* 4. FEE COLLECTION MODULE */}
       {(activeModule === 'fee_collection' || activeModule === 'collect_fees') && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
-          <div className="flex justify-between items-center pb-4 border-b border-slate-100">
-            <div>
-              <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
-                <Receipt className="w-5 h-5 text-indigo-600" />
-                Fee Collection Terminal & Official Receipt Issuer
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Process student fee payments, support Ghana Mobile Money (MTN, Telecel, AT), bank transfer, cash, and print tamper-proof receipts.
-              </p>
+        <div className="space-y-6">
+          {/* Header Card with Hierarchical Filters */}
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full">
+                    Real-Time Terminal
+                  </span>
+                  <span className="text-xs text-slate-400 font-medium">Department & Class Level Hierarchy</span>
+                </div>
+                <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-emerald-600" />
+                  Record Real-Time Fee Payment
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Select or enter the academic department, choose the class level, inspect the student roster or search students by name to record instant fee receipts.
+                </p>
+              </div>
+
+              {/* Quick Status Pill */}
+              <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 px-4 py-2 rounded-2xl">
+                <Users className="w-4 h-4 text-cyan-600" />
+                <div className="text-xs">
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Roster In View</span>
+                  <span className="font-extrabold text-slate-900">{filteredStudentsForPayment.length} Students</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Hierarchical Filters */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-5">
+              {/* 1. Department Filter */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-cyan-600" />
+                  1. Department Level
+                </label>
+                <div className="space-y-2">
+                  <select
+                    value={paymentDept}
+                    onChange={(e) => {
+                      setPaymentDept(e.target.value);
+                      setCustomDeptInput('');
+                      setPaymentClass('All');
+                    }}
+                    className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-xs font-bold bg-white text-slate-800 focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                  >
+                    <option value="All">All Departments</option>
+                    {availableDepartments.map(dept => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="text"
+                    placeholder="Or enter custom department..."
+                    value={customDeptInput}
+                    onChange={(e) => {
+                      setCustomDeptInput(e.target.value);
+                      if (e.target.value.trim()) {
+                        setPaymentDept('Custom');
+                      } else {
+                        setPaymentDept('All');
+                      }
+                    }}
+                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs bg-slate-50 text-slate-700 focus:bg-white focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* 2. Class Level Filter */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                  <BookOpen className="w-3.5 h-3.5 text-cyan-600" />
+                  2. Class Level
+                </label>
+                <select
+                  value={paymentClass}
+                  onChange={(e) => setPaymentClass(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-xs font-bold bg-white text-slate-800 focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                >
+                  <option value="All">All Classes ({availableClasses.length})</option>
+                  {availableClasses.map(cls => (
+                    <option key={cls} value={cls}>{cls}</option>
+                  ))}
+                </select>
+
+                {/* Quick Class Pills */}
+                <div className="flex flex-wrap gap-1 pt-1 max-h-16 overflow-y-auto">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentClass('All')}
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold cursor-pointer transition-colors ${
+                      paymentClass === 'All' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    All
+                  </button>
+                  {availableClasses.slice(0, 5).map(cls => (
+                    <button
+                      key={cls}
+                      type="button"
+                      onClick={() => setPaymentClass(cls)}
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold cursor-pointer transition-colors ${
+                        paymentClass === cls ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {cls}
+                    </button>
+                  ))}
+                  {availableClasses.length > 5 && (
+                    <span className="text-[10px] text-slate-400 self-center">+{availableClasses.length - 5} more</span>
+                  )}
+                </div>
+              </div>
+
+              {/* 3. Search Student by Name */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                  <Search className="w-3.5 h-3.5 text-cyan-600" />
+                  3. Search Student
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search by student name or ID..."
+                    value={studentRosterSearch}
+                    onChange={(e) => setStudentRosterSearch(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2.5 border border-slate-300 rounded-xl text-xs bg-white focus:ring-2 focus:ring-emerald-500 shadow-2xs font-medium"
+                  />
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  {studentRosterSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setStudentRosterSearch('')}
+                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                  <span>Filtered: <strong>{filteredStudentsForPayment.length}</strong> of {students.length}</span>
+                  {(paymentDept !== 'All' || paymentClass !== 'All' || studentRosterSearch) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaymentDept('All');
+                        setCustomDeptInput('');
+                        setPaymentClass('All');
+                        setStudentRosterSearch('');
+                      }}
+                      className="text-emerald-700 hover:underline font-bold"
+                    >
+                      Reset Filters
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -421,84 +674,305 @@ export default function FeeManager({
             </div>
           )}
 
-          <form onSubmit={handleCollectFee} className="space-y-6 text-xs">
-            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2">
-                <label className="block font-bold text-slate-700 mb-1">Select Student *</label>
-                <select
-                  value={collectStudentId}
-                  onChange={(e) => setCollectStudentId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500"
-                >
-                  {students.map(s => {
-                    const bill = billsList.find(b => b.studentId === s.id || b.admissionNo === s.admissionNo);
-                    const bal = bill ? bill.balance : 0;
+          {/* Main 2-Column Grid: Left = Class Roster Directory, Right = Payment Entry Form */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Left Column: Student Roster List */}
+            <div className="lg:col-span-6 bg-white rounded-3xl shadow-sm border border-slate-200 p-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-emerald-600" />
+                  <h4 className="text-sm font-black text-slate-900">
+                    Class Roster Directory
+                  </h4>
+                </div>
+                <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                  Click student to record payment
+                </span>
+              </div>
+
+              {filteredStudentsForPayment.length === 0 ? (
+                <div className="text-center py-12 px-4 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
+                  <Users className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                  <p className="text-sm font-bold text-slate-700">No students match current filters</p>
+                  <p className="text-xs text-slate-500 mt-1">Try selecting a different department, class or clearing the search keyword.</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentDept('All');
+                      setCustomDeptInput('');
+                      setPaymentClass('All');
+                      setStudentRosterSearch('');
+                    }}
+                    className="mt-3 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700"
+                  >
+                    Clear All Filters
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[560px] overflow-y-auto pr-1">
+                  {filteredStudentsForPayment.map(st => {
+                    const studentBill = billsList.find(b => b.studentId === st.id || b.admissionNo === st.admissionNo);
+                    const isSelected = st.id === selectedStudent?.id;
+                    const balance = studentBill ? studentBill.balance : 715;
+                    const hasArrears = balance > 0;
+
                     return (
-                      <option key={s.id} value={s.id}>
-                        {s.fullName} ({s.admissionNo} • {s.className}) — Outstanding: {bal.toFixed(2)} CFA
-                      </option>
+                      <div
+                        key={st.id}
+                        onClick={() => handleStudentSelect(st.id)}
+                        className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                          isSelected
+                            ? 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
+                            : 'bg-white hover:bg-slate-50 border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
+                            isSelected
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-slate-100 text-slate-700'
+                          }`}>
+                            {st.fullName.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h5 className="text-xs font-extrabold text-slate-900 truncate">
+                                {st.fullName}
+                              </h5>
+                              {isSelected && (
+                                <span className="text-[9px] bg-emerald-600 text-white font-black px-1.5 py-0.2 rounded-sm uppercase">
+                                  Selected
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
+                              <span className="font-mono text-slate-600 font-bold">{st.admissionNo}</span>
+                              <span>•</span>
+                              <span className="bg-slate-100 text-slate-700 font-semibold px-1.5 py-0.2 rounded">
+                                {st.className}
+                              </span>
+                              {st.department && (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-slate-400 truncate max-w-[100px]">{st.department}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Balance Badge */}
+                        <div className="text-right shrink-0">
+                          {hasArrears ? (
+                            <span className="text-[11px] font-black text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg block">
+                              {balance.toFixed(2)} CFA
+                              <span className="block text-[9px] font-medium text-rose-500 uppercase">Balance Due</span>
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg block">
+                              ✓ Fully Paid
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     );
                   })}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Payment Method</label>
-                <select
-                  value={collectMethod}
-                  onChange={(e) => setCollectMethod(e.target.value as any)}
-                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-indigo-700"
-                >
-                  <option value="Mobile Money">MTN / Telecel / AT MoMo</option>
-                  <option value="Cash">Cash (Bursar Counter)</option>
-                  <option value="Bank">Bank Direct Transfer / Deposit</option>
-                  <option value="Cheque">Bank Cheque</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Payment Amount (CFA) *</label>
-                <input
-                  type="number"
-                  required
-                  min="1"
-                  step="0.01"
-                  value={collectAmount}
-                  onChange={(e) => setCollectAmount(parseFloat(e.target.value) || 0)}
-                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-mono font-black text-base text-slate-900 focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div className="md:col-span-3 bg-white p-4 rounded-xl border border-slate-200">
-                <PaidAsSelector
-                  value={collectPaidAs}
-                  onChange={setCollectPaidAs}
-                  label="Paid As (Description / Fee Purpose)"
-                  required
-                />
-              </div>
-
-              <div className="md:col-span-3">
-                <label className="block font-bold text-slate-700 mb-1">Transaction Ref / MoMo Txn ID / Cheque No</label>
-                <input
-                  type="text"
-                  value={collectRef}
-                  onChange={(e) => setCollectRef(e.target.value)}
-                  placeholder="e.g. 29384729103 or Cash at Counter"
-                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-mono"
-                />
-              </div>
+                </div>
+              )}
             </div>
 
-            <div className="flex justify-end gap-3">
-              <button
-                type="submit"
-                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-sm flex items-center gap-2 cursor-pointer transition-colors"
-              >
-                <Receipt className="w-4 h-4" /> Process Payment & Issue Receipt
-              </button>
+            {/* Right Column: Active Payment Terminal & Form */}
+            <div className="lg:col-span-6 space-y-4">
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 space-y-5">
+                <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+                  <div>
+                    <h4 className="text-base font-black text-slate-900">Payment Details</h4>
+                    <p className="text-xs text-slate-500">Selected student billing information</p>
+                  </div>
+                  {selectedStudent && (
+                    <span className="bg-cyan-100 text-cyan-800 text-[10px] font-black px-2.5 py-1 rounded-full uppercase">
+                      {selectedStudent.className}
+                    </span>
+                  )}
+                </div>
+
+                {selectedStudent ? (
+                  <form onSubmit={handleCollectFee} className="space-y-4">
+                    {/* Selected Student Banner */}
+                    <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-4 rounded-2xl shadow-sm space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] uppercase tracking-wider text-emerald-400 font-bold">Selected Student</span>
+                          <h4 className="text-base font-black text-white">{selectedStudent.fullName}</h4>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] uppercase text-slate-400 font-medium">Admission ID</span>
+                          <p className="text-xs font-mono font-bold text-slate-200">{selectedStudent.admissionNo}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-700/60 text-xs">
+                        <div>
+                          <span className="text-slate-400 block text-[10px]">Class Level</span>
+                          <span className="font-bold text-white">{selectedStudent.className}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[10px]">Department</span>
+                          <span className="font-bold text-white truncate block">{selectedStudent.department || 'General'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[10px]">Guardian Phone</span>
+                          <span className="font-bold text-white">{selectedStudent.parentPhone || 'N/A'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Financial Bill Status Card */}
+                    {selectedBill && (
+                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                        <div className="flex justify-between items-center text-xs">
+                          <div>
+                            <span className="text-slate-500 block text-[10px] uppercase font-bold">Billing Term</span>
+                            <span className="font-bold text-slate-800">{selectedBill.className} • 2025-2026 Third Term</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-slate-500 block text-[10px] uppercase font-bold">Remaining Arrears</span>
+                            <span className="font-mono font-black text-rose-600 text-base">{selectedBill.balance.toFixed(2)} CFA</span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200 text-center text-xs">
+                          <div className="bg-white p-2 rounded-xl border border-slate-200">
+                            <span className="text-[10px] text-slate-400 uppercase block font-bold">Payable</span>
+                            <span className="font-bold text-slate-800">{(selectedBill.payable ?? selectedBill.totalAmount ?? 0).toFixed(2)} CFA</span>
+                          </div>
+                          <div className="bg-white p-2 rounded-xl border border-slate-200">
+                            <span className="text-[10px] text-slate-400 uppercase block font-bold">Paid to Date</span>
+                            <span className="font-bold text-emerald-600">{(selectedBill.paid ?? selectedBill.paidAmount ?? 0).toFixed(2)} CFA</span>
+                          </div>
+                          <div className="bg-white p-2 rounded-xl border border-slate-200">
+                            <span className="text-[10px] text-slate-400 uppercase block font-bold">Net Balance</span>
+                            <span className="font-black text-rose-600">{(selectedBill.balance ?? 0).toFixed(2)} CFA</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Amount Paid input */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-bold text-slate-700 uppercase">
+                          Amount Paid (CFA) *
+                        </label>
+                        {selectedBill && selectedBill.balance > 0 && (
+                          <div className="flex gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setCollectAmount(selectedBill.balance)}
+                              className="text-[10px] font-black bg-rose-100 hover:bg-rose-200 text-rose-800 px-2 py-0.5 rounded cursor-pointer transition-colors"
+                            >
+                              Pay Full Balance ({(selectedBill.balance ?? 0).toFixed(0)} CFA)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCollectAmount(parseFloat(((selectedBill.balance ?? 0) / 2).toFixed(2)))}
+                              className="text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded cursor-pointer transition-colors"
+                            >
+                              50%
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <input
+                        type="number"
+                        step="0.01"
+                        required
+                        value={collectAmount}
+                        onChange={(e) => setCollectAmount(parseFloat(e.target.value) || 0)}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-xl text-base font-black text-emerald-700 bg-white focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                        placeholder="0.00"
+                      />
+                    </div>
+
+                    {/* Payment Method */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                        Payment Method *
+                      </label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {([
+                          { key: 'Mobile Money', label: 'MoMo' },
+                          { key: 'Cash', label: 'Cash' },
+                          { key: 'Bank', label: 'Bank' },
+                          { key: 'Cheque', label: 'Cheque' }
+                        ] as const).map(item => (
+                          <button
+                            key={item.key}
+                            type="button"
+                            onClick={() => setCollectMethod(item.key)}
+                            className={`py-2 px-1.5 rounded-xl text-[11px] font-bold border transition-all cursor-pointer truncate ${
+                              collectMethod === item.key
+                                ? 'bg-cyan-600 text-white border-cyan-600 shadow-xs'
+                                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Paid As / Purpose */}
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                      <PaidAsSelector
+                        value={collectPaidAs}
+                        onChange={setCollectPaidAs}
+                        label="Paid As (Fee Category / Tariff Purpose)"
+                        required
+                      />
+                    </div>
+
+                    {/* Transaction Reference */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                        Transaction Ref / MoMo Txn ID / Cheque No
+                      </label>
+                      <input
+                        type="text"
+                        value={collectRef}
+                        onChange={(e) => setCollectRef(e.target.value)}
+                        placeholder="e.g. 29384729103 or Cash at Counter"
+                        className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-mono text-xs"
+                      />
+                    </div>
+
+                    {/* Collector Info */}
+                    <div className="text-[11px] text-slate-500 flex items-center justify-between bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200">
+                      <span>Collector Attribution:</span>
+                      <span className="font-bold text-slate-800">
+                        Admin Portal Operator
+                      </span>
+                    </div>
+
+                    {/* Submit Button */}
+                    <div className="pt-2">
+                      <button
+                        type="submit"
+                        className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl shadow-lg shadow-emerald-900/20 text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
+                      >
+                        <Check className="w-4 h-4" /> Process Payment & Issue Official Receipt
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="text-center py-12 text-slate-400">
+                    <User className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-xs font-bold">Please select a student from the class roster list to proceed.</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </form>
+          </div>
         </div>
       )}
 

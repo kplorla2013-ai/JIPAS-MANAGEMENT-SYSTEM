@@ -983,6 +983,7 @@ export default function AdminPortal({
             payments={payments}
             classFeeTariffs={classFeeTariffs}
             navGroups={ADMIN_NAV_GROUPS}
+            userRole="admin"
             onNavigate={(modId) => handleNavigate(modId)}
             placeholder="Search students, teachers, fee bills, receipts, settings..."
           />

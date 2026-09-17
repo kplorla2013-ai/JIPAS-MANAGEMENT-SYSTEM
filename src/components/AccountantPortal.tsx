@@ -29,6 +29,7 @@ import {
   RotateCw, Filter, Phone, MessageSquare, Clock, Sparkles, Wallet, Receipt, Layers, ShieldCheck,
   Users, BookOpen, ChevronRight, CheckCircle, RefreshCw, Building2, UserCheck, Building
 } from 'lucide-react';
+import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 
 interface AccountantPortalProps {
   bills: StudentBill[];
@@ -295,6 +296,10 @@ export default function AccountantPortal({
   const [filterMethod, setFilterMethod] = useState('All');
   const [filterDepartment, setFilterDepartment] = useState('All');
   const [filterClass, setFilterClass] = useState('All');
+  const [filterDateRange, setFilterDateRange] = useState<'All' | 'Today' | 'Yesterday' | 'This Week' | 'This Month' | 'Custom'>('All');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
+  const [filterPaymentStatus, setFilterPaymentStatus] = useState<'All' | 'Completed' | 'Pending'>('All');
   const [sortBy, setSortBy] = useState<'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc' | 'name_asc' | 'class_asc' | 'receipt_asc'>('date_desc');
   const [isImporterOpen, setIsImporterOpen] = useState(false);
   const [billsFilter, setBillsFilter] = useState<'all' | 'action-required' | 'unpaid' | 'paid'>('all');
@@ -508,6 +513,24 @@ export default function AccountantPortal({
     return Array.from(cls);
   }, [students, payments]);
 
+  // Financial Dashboard Totals
+  const totalCollections = useMemo(() => bills.reduce((sum, b) => sum + (b.paid || 0), 0), [bills]);
+
+  // Group bills by class for the dashboard bar chart
+  const barDataByClass = useMemo(() => {
+    const groups: { [className: string]: { class: string; collected: number; outstanding: number } } = {};
+    bills.forEach(b => {
+      const cls = b.className || 'Unknown';
+      if (!groups[cls]) {
+        groups[cls] = { class: cls, collected: 0, outstanding: 0 };
+      }
+      groups[cls].collected += b.paid || 0;
+      groups[cls].outstanding += b.balance || 0;
+    });
+    // Return top 6-8 classes to prevent overcrowding in the visual chart
+    return Object.values(groups).slice(0, 6);
+  }, [bills]);
+
   // Enhanced Filtered and Sorted Payments
   const filteredPayments = useMemo(() => {
     return payments.filter(p => {
@@ -526,7 +549,48 @@ export default function AccountantPortal({
       // Class matching
       const matchClass = filterClass === 'All' || p.className === filterClass;
 
-      return matchSearch && matchMethod && matchDept && matchClass;
+      // Payment Status matching
+      const statusValue = p.status || 'Completed';
+      const matchStatus = filterPaymentStatus === 'All' || statusValue === filterPaymentStatus;
+
+      // Date Range matching
+      let matchDate = true;
+      if (filterDateRange !== 'All') {
+        const pDate = new Date(p.date);
+        const today = new Date();
+        const dToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const dPayment = new Date(pDate.getFullYear(), pDate.getMonth(), pDate.getDate());
+
+        if (filterDateRange === 'Today') {
+          matchDate = dPayment.getTime() === dToday.getTime();
+        } else if (filterDateRange === 'Yesterday') {
+          const dYesterday = new Date(dToday);
+          dYesterday.setDate(dYesterday.getDate() - 1);
+          matchDate = dPayment.getTime() === dYesterday.getTime();
+        } else if (filterDateRange === 'This Week') {
+          const oneWeekAgo = new Date(dToday);
+          oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+          matchDate = dPayment.getTime() >= oneWeekAgo.getTime() && dPayment.getTime() <= dToday.getTime();
+        } else if (filterDateRange === 'This Month') {
+          matchDate = pDate.getFullYear() === today.getFullYear() && pDate.getMonth() === today.getMonth();
+        } else if (filterDateRange === 'Custom') {
+          let startMatch = true;
+          let endMatch = true;
+          if (filterStartDate) {
+            const start = new Date(filterStartDate);
+            const dStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+            startMatch = dPayment.getTime() >= dStart.getTime();
+          }
+          if (filterEndDate) {
+            const end = new Date(filterEndDate);
+            const dEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+            endMatch = dPayment.getTime() <= dEnd.getTime();
+          }
+          matchDate = startMatch && endMatch;
+        }
+      }
+
+      return matchSearch && matchMethod && matchDept && matchClass && matchStatus && matchDate;
     }).sort((a, b) => {
       if (sortBy === 'date_desc') {
         return new Date(b.date).getTime() - new Date(a.date).getTime();
@@ -551,7 +615,7 @@ export default function AccountantPortal({
       }
       return 0;
     });
-  }, [payments, students, searchQuery, filterMethod, filterDepartment, filterClass, sortBy]);
+  }, [payments, students, searchQuery, filterMethod, filterDepartment, filterClass, filterDateRange, filterStartDate, filterEndDate, filterPaymentStatus, sortBy]);
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 items-start relative">
@@ -577,6 +641,7 @@ export default function AccountantPortal({
             teachers={[]}
             bills={bills}
             payments={payments}
+            userRole="accountant"
             onNavigate={(_modId, tabId) => {
               if (tabId && (
                 tabId === 'collections' ||
@@ -1136,8 +1201,9 @@ export default function AccountantPortal({
 
       {/* 1. COLLECTIONS LOG TAB */}
       {activeTab === 'collections' && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
-          <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b border-slate-100 pb-4">
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 space-y-6">
+          {/* Header section */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-100">
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-bold text-slate-900">Payment Collections Log</h3>
@@ -1148,50 +1214,166 @@ export default function AccountantPortal({
               <p className="text-xs text-slate-500">Repository of all issued receipts and collected tuition/fee payments.</p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto">
-              {/* Import Button */}
-              <button
-                type="button"
-                onClick={() => setIsImporterOpen(true)}
-                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black rounded-xl text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer shrink-0"
-              >
-                <Download className="w-3.5 h-3.5 rotate-180" />
-                <span>Import Financial Records</span>
-              </button>
+            <button
+              type="button"
+              onClick={() => setIsImporterOpen(true)}
+              className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black rounded-xl text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer shrink-0"
+            >
+              <Download className="w-3.5 h-3.5 rotate-180" />
+              <span>Import Financial Records</span>
+            </button>
+          </div>
 
-              {/* Search */}
-              <div className="relative min-w-[180px] flex-1 sm:flex-none">
-                <input
-                  type="text"
-                  placeholder="Search receipt, student or ID..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-xl text-xs bg-white focus:ring-1 focus:ring-cyan-500"
-                />
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+          {/* FINANCIAL INSIGHTS DASHBOARD */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-50 border border-slate-200/80 rounded-3xl p-6">
+            {/* Summary Cards */}
+            <div className="space-y-4 flex flex-col justify-center">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Billed Fees</span>
+                <h4 className="text-2xl font-black text-slate-900 font-mono">
+                  {(totalCollections + totalOutstanding).toFixed(2)} CFA
+                </h4>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-emerald-100/60 border border-emerald-200 p-3 rounded-2xl">
+                  <span className="text-[9px] font-black uppercase text-emerald-800">Collected</span>
+                  <h5 className="text-base font-bold text-emerald-950 font-mono">{(totalCollections).toFixed(2)} CFA</h5>
+                </div>
+                <div className="bg-rose-100/60 border border-rose-200 p-3 rounded-2xl">
+                  <span className="text-[9px] font-black uppercase text-rose-800">Outstanding</span>
+                  <h5 className="text-base font-bold text-rose-950 font-mono">{(totalOutstanding).toFixed(2)} CFA</h5>
+                </div>
+              </div>
+            </div>
+
+            {/* Pie Chart */}
+            <div className="bg-white rounded-2xl p-4 border border-slate-200/60 flex flex-col items-center justify-center min-h-[180px]">
+              <span className="text-[10px] font-black uppercase text-slate-500 mb-2">Collections vs. Debt Ratio</span>
+              <div className="w-full h-32 relative">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: 'Collected', value: totalCollections },
+                        { name: 'Outstanding', value: totalOutstanding }
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={25}
+                      outerRadius={45}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      <Cell fill="#10b981" />
+                      <Cell fill="#f43f5e" />
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: any) => [`${Number(value).toFixed(2)} CFA`, '']}
+                      contentStyle={{ borderRadius: '12px', fontSize: '10px' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex gap-4 text-[10px] font-bold text-slate-600 mt-2">
+                <div className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Collected ({Math.round(totalCollections / ((totalCollections + totalOutstanding) || 1) * 100)}%)</div>
+                <div className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-rose-500" /> Outstanding ({Math.round(totalOutstanding / ((totalCollections + totalOutstanding) || 1) * 100)}%)</div>
+              </div>
+            </div>
+
+            {/* Bar Chart by Class */}
+            <div className="bg-white rounded-2xl p-4 border border-slate-200/60 flex flex-col justify-between min-h-[180px]">
+              <span className="text-[10px] font-black uppercase text-slate-500 text-center mb-1">Financial Standing by Class (Top 6)</span>
+              <div className="w-full h-36">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={barDataByClass} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="class" tick={{ fontSize: 9, fontWeight: 'bold', fill: '#64748b' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 9, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                    <Tooltip 
+                      formatter={(value: any) => [`${Number(value).toFixed(2)} CFA`, '']}
+                      contentStyle={{ borderRadius: '12px', fontSize: '10px' }}
+                    />
+                    <Bar dataKey="collected" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="outstanding" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          {/* 2-COLUMN SIDEBAR & TABLE LAYOUT */}
+          <div className="flex flex-col lg:flex-row gap-6">
+            {/* Quick Filter Sidebar */}
+            <div className="w-full lg:w-64 shrink-0 bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-5">
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 mb-1 flex items-center gap-1.5">
+                  <Filter className="w-3.5 h-3.5" /> Quick Filters
+                </h4>
+                <p className="text-[10px] text-slate-500 leading-normal">Narrow down collection logs by specific metrics instantly.</p>
               </div>
 
-              {/* Department Filter */}
-              <div className="flex items-center gap-1">
-                <label className="text-[10px] font-extrabold uppercase text-slate-400 shrink-0">Dept:</label>
+              {/* Search Box */}
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black uppercase text-slate-400">Search Query</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Receipt, student or ID..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-xl text-xs bg-white focus:ring-1 focus:ring-cyan-500 font-semibold"
+                  />
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                </div>
+              </div>
+
+              {/* Date Range Selector */}
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black uppercase text-slate-400">Date Range</label>
                 <select
-                  value={filterDepartment}
-                  onChange={(e) => setFilterDepartment(e.target.value)}
-                  className="px-2.5 py-2 border border-slate-300 rounded-xl text-xs bg-white font-bold text-slate-700"
+                  value={filterDateRange}
+                  onChange={(e) => setFilterDateRange(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 focus:outline-hidden"
                 >
-                  {collectionsAvailableDepartments.map(d => (
-                    <option key={d} value={d}>{d === 'All' ? 'All Depts' : d}</option>
-                  ))}
+                  <option value="All">All Time</option>
+                  <option value="Today">Today</option>
+                  <option value="Yesterday">Yesterday</option>
+                  <option value="This Week">This Week (7 Days)</option>
+                  <option value="This Month">This Month</option>
+                  <option value="Custom">Custom Range</option>
                 </select>
+
+                {filterDateRange === 'Custom' && (
+                  <div className="grid grid-cols-2 gap-2 pt-1.5">
+                    <div className="space-y-1">
+                      <span className="text-[8px] font-bold text-slate-400 uppercase">Start</span>
+                      <input
+                        type="date"
+                        value={filterStartDate}
+                        onChange={(e) => setFilterStartDate(e.target.value)}
+                        className="w-full px-2 py-1 border border-slate-300 rounded-lg text-[10px] bg-white font-medium"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[8px] font-bold text-slate-400 uppercase">End</span>
+                      <input
+                        type="date"
+                        value={filterEndDate}
+                        onChange={(e) => setFilterEndDate(e.target.value)}
+                        className="w-full px-2 py-1 border border-slate-300 rounded-lg text-[10px] bg-white font-medium"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Class Filter */}
-              <div className="flex items-center gap-1">
-                <label className="text-[10px] font-extrabold uppercase text-slate-400 shrink-0">Class:</label>
+              {/* Class Group */}
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black uppercase text-slate-400">Class Group</label>
                 <select
                   value={filterClass}
                   onChange={(e) => setFilterClass(e.target.value)}
-                  className="px-2.5 py-2 border border-slate-300 rounded-xl text-xs bg-white font-bold text-slate-700"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-700"
                 >
                   {collectionsAvailableClasses.map(c => (
                     <option key={c} value={c}>{c === 'All' ? 'All Classes' : c}</option>
@@ -1199,37 +1381,106 @@ export default function AccountantPortal({
                 </select>
               </div>
 
-              {/* Payment Method Filter */}
-              <select
-                value={filterMethod}
-                onChange={(e) => setFilterMethod(e.target.value)}
-                className="px-2.5 py-2 border border-slate-300 rounded-xl text-xs bg-white font-bold text-slate-700"
-              >
-                <option value="All">All Methods</option>
-                <option value="Mobile money">Mobile money</option>
-                <option value="Cash">Cash</option>
-                <option value="Bank Transfer">Bank Transfer</option>
-              </select>
-
-              {/* Sort By Dropdown */}
-              <div className="flex items-center gap-1">
-                <label className="text-[10px] font-extrabold uppercase text-slate-400 shrink-0">Sort:</label>
+              {/* Payment Status Selector */}
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black uppercase text-slate-400">Payment Status</label>
                 <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className="px-2.5 py-2 border border-indigo-200 bg-indigo-50/60 rounded-xl text-xs font-black text-indigo-900 focus:ring-1 focus:ring-indigo-500"
+                  value={filterPaymentStatus}
+                  onChange={(e) => setFilterPaymentStatus(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-700"
                 >
-                  <option value="date_desc">Date (Newest First)</option>
-                  <option value="date_asc">Date (Oldest First)</option>
-                  <option value="amount_desc">Amount (High to Low)</option>
-                  <option value="amount_asc">Amount (Low to High)</option>
-                  <option value="name_asc">Student Name (A-Z)</option>
-                  <option value="class_asc">Class Name (A-Z)</option>
-                  <option value="receipt_asc">Receipt No</option>
+                  <option value="All">All Statuses</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Pending">Pending</option>
                 </select>
               </div>
+
+              {/* Extra Original Filters for completeness */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <span className="text-[9px] font-black uppercase text-slate-400">Dept</span>
+                  <select
+                    value={filterDepartment}
+                    onChange={(e) => setFilterDepartment(e.target.value)}
+                    className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-lg text-[10px] font-semibold text-slate-700"
+                  >
+                    {collectionsAvailableDepartments.map(d => (
+                      <option key={d} value={d}>{d === 'All' ? 'All' : d}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[9px] font-black uppercase text-slate-400">Method</span>
+                  <select
+                    value={filterMethod}
+                    onChange={(e) => setFilterMethod(e.target.value)}
+                    className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-lg text-[10px] font-semibold text-slate-700"
+                  >
+                    <option value="All">All</option>
+                    <option value="Mobile money">MoMo</option>
+                    <option value="Cash">Cash</option>
+                    <option value="Bank Transfer">Bank</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Automated Alerts Trigger */}
+              <button
+                type="button"
+                onClick={() => {
+                  setAlertModalInitialFilter('unpaid');
+                  setIsAutomatedAlertModalOpen(true);
+                }}
+                className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer font-sans"
+              >
+                <AlertTriangle className="w-4 h-4 animate-pulse shrink-0" />
+                <span>Bulk Overdue Alerts</span>
+              </button>
+
+              {/* Reset Filters button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setFilterDateRange('All');
+                  setFilterStartDate('');
+                  setFilterEndDate('');
+                  setFilterClass('All');
+                  setFilterPaymentStatus('All');
+                  setFilterMethod('All');
+                  setFilterDepartment('All');
+                }}
+                className="w-full py-1.5 bg-slate-200/80 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold cursor-pointer transition-all"
+              >
+                Reset Active Filters
+              </button>
             </div>
-          </div>
+
+            {/* Table Area (Original collections table) */}
+            <div className="flex-1 space-y-4">
+              <div className="flex justify-between items-center bg-slate-50 px-4 py-3 rounded-2xl border border-slate-200/60">
+                <span className="text-xs font-bold text-slate-500">
+                  Showing <span className="font-extrabold text-slate-900">{filteredPayments.length}</span> matching entries
+                </span>
+                
+                {/* Sort By Dropdown */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-extrabold uppercase text-slate-400">Sort:</span>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    className="px-2.5 py-1.5 border border-indigo-200 bg-indigo-50/60 rounded-xl text-xs font-black text-indigo-900 focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="date_desc">Date (Newest First)</option>
+                    <option value="date_asc">Date (Oldest First)</option>
+                    <option value="amount_desc">Amount (High to Low)</option>
+                    <option value="amount_asc">Amount (Low to High)</option>
+                    <option value="name_asc">Student Name (A-Z)</option>
+                    <option value="class_asc">Class Name (A-Z)</option>
+                    <option value="receipt_asc">Receipt No</option>
+                  </select>
+                </div>
+              </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse whitespace-nowrap text-xs">
@@ -1300,7 +1551,9 @@ export default function AccountantPortal({
             </table>
           </div>
         </div>
-      )}
+      </div>
+    </div>
+  )}
 
       {/* 2. STUDENT FEE BILLS TAB */}
       {activeTab === 'bills' && (() => {

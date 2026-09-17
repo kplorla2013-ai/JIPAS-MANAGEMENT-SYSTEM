@@ -127,14 +127,13 @@ export const VALID_TEACHER_VIEWS = new Set<string>([
   'dashboard',
   'enter_results',
   'attendance_comment',
-  'enroll_student',
   'profile',
   'change_password',
   'review_reports',
   'backup_recovery'
 ]);
 
-export type TeacherViewType = 'dashboard' | 'enter_results' | 'attendance_comment' | 'enroll_student' | 'profile' | 'change_password' | 'review_reports' | 'backup_recovery';
+export type TeacherViewType = 'dashboard' | 'enter_results' | 'attendance_comment' | 'profile' | 'change_password' | 'review_reports' | 'backup_recovery';
 
 export const getInitialTeacherView = (): TeacherViewType => {
   if (typeof window !== 'undefined') {
@@ -1137,22 +1136,6 @@ export default function TeacherPortal({
               </div>
 
               <div className={isSidebarOpen ? "grid grid-cols-2 gap-2 p-1.5 bg-[#17202d] rounded-2xl border border-slate-700/50" : "flex flex-col gap-1.5"}>
-                {/* 3a. Enroll New Student */}
-                <button
-                  onClick={() => handleNavigate('enroll_student')}
-                  title="Enroll New Student"
-                  className={`flex flex-col items-center justify-center p-2.5 rounded-xl transition-all cursor-pointer text-center min-h-[66px] ${
-                    activeView === 'enroll_student' 
-                      ? 'bg-emerald-600 text-white font-bold shadow-md border border-emerald-400' 
-                      : 'bg-[#1e2837] hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700/60'
-                  }`}
-                >
-                  <UserPlus className={`w-5 h-5 mb-1 ${activeView === 'enroll_student' ? 'text-white' : 'text-emerald-400'}`} />
-                  <span className="text-[10px] font-extrabold text-center leading-tight">
-                    {isSidebarOpen ? 'Enroll Student' : 'Enroll'}
-                  </span>
-                </button>
-
                 {/* 4. My Profile */}
                 <button
                   onClick={() => handleNavigate('profile')}
@@ -1249,6 +1232,7 @@ export default function TeacherPortal({
               teachers={teachers}
               bills={bills}
               payments={payments}
+              userRole="teacher"
               onNavigate={(modId, tabId) => {
                 if (modId) {
                   setActiveView(modId as TeacherViewType);
@@ -1682,30 +1666,6 @@ export default function TeacherPortal({
                       </h4>
                       <p className="text-[11px] text-slate-500 group-hover:text-purple-100 transition-colors mt-0.5 line-clamp-2">
                         Review class broadsheets & submit terminal reports
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* Menu 4: Enroll Student */}
-                  <button
-                    onClick={() => setActiveView('enroll_student')}
-                    className="group p-4 bg-gradient-to-br from-amber-50/80 to-slate-50 hover:from-amber-600 hover:to-amber-700 border border-amber-100 hover:border-amber-600 rounded-2xl text-left transition-all duration-200 shadow-2xs hover:shadow-lg hover:-translate-y-1 cursor-pointer flex flex-col justify-between space-y-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="w-10 h-10 bg-amber-600 group-hover:bg-white text-white group-hover:text-amber-600 rounded-xl flex items-center justify-center transition-colors shadow-xs">
-                        <UserPlus className="w-5 h-5" />
-                      </div>
-                      <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-100 group-hover:bg-amber-500 text-amber-800 group-hover:text-white uppercase tracking-wider transition-colors">
-                        Admission
-                      </span>
-                    </div>
-                    <div>
-                      <h4 className="font-extrabold text-xs text-slate-900 group-hover:text-white transition-colors flex items-center gap-1">
-                        Enroll Student
-                        <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
-                      </h4>
-                      <p className="text-[11px] text-slate-500 group-hover:text-amber-100 transition-colors mt-0.5 line-clamp-2">
-                        Submit new student registration profiles
                       </p>
                     </div>
                   </button>

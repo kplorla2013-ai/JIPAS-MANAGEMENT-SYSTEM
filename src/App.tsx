@@ -37,6 +37,7 @@ import {
   saveStoredNotifications,
   getStoredUsers,
   saveStoredUsers,
+  recordSecurityAuditLog,
   saveStoredExpenses,
   saveStoredSecretarySummaries,
   saveStoredTeacherAttendance,
@@ -307,6 +308,31 @@ export default function App() {
       unsubAuth();
     };
   }, []);
+
+  // Role & Privilege Intrusion Detection System (IDS)
+  useEffect(() => {
+    if (currentUser) {
+      const registeredUsers = getStoredUsers();
+      const actualUser = registeredUsers.find(u => u.email.toLowerCase() === currentUser.email.toLowerCase());
+      if (actualUser && actualUser.role !== currentUser.role) {
+        console.error('CRITICAL: Local session role mismatch. Privilege escalation/role tampering suspected.');
+        
+        // Log the security violation to the persistent audit ledger
+        recordSecurityAuditLog({
+          performedBy: currentUser.name || 'Console Attacker',
+          performedByRole: currentUser.role || 'Unverified',
+          targetUser: actualUser.name,
+          targetUserRole: actualUser.role,
+          actionType: 'Access Violation Attempt',
+          details: `Role tampering attempt blocked. Session specified: "${currentUser.role}", actual registered role: "${actualUser.role}". Access denied, session destroyed.`
+        });
+
+        // Revoke active session forcefully
+        handleLogout();
+        triggerToast('⚠️ Security Exception: Session signature invalid or altered.');
+      }
+    }
+  }, [currentUser]);
 
   const formatTimestamp = (d: Date) => {
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -1122,6 +1148,11 @@ export default function App() {
                 notifications={notifications}
                 onAddPayment={handleAddPayment}
                 onAddNotification={handleAddNotification}
+                onAddStudent={handleAddStudent}
+                onUpdateBills={(updatedBills) => {
+                  setBills(updatedBills);
+                  saveStoredBills(updatedBills);
+                }}
                 onLogout={handleLogout}
               />
             )}
