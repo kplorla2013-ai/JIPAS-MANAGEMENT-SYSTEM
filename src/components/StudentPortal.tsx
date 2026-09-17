@@ -1955,7 +1955,7 @@ export default function StudentPortal({
       {/* ===================== MODAL: OFFICIAL PAYMENT RECEIPT ===================== */}
       {selectedReceipt && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 space-y-4 print:p-0 print:border-none">
+          <div id="printable-receipt" className="print-a4-page print-no-break bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 space-y-4 print:p-0 print:border-none">
             {/* Header */}
             <div className="text-center pb-3 border-b-2 border-slate-800">
               <div className="text-[10px] font-black tracking-widest text-emerald-700 uppercase">JIPAS</div>
@@ -2034,7 +2034,7 @@ export default function StudentPortal({
       {/* ===================== MODAL: FULL FINANCIAL STATEMENT ===================== */}
       {showPrintStatementModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-6 border border-slate-200 space-y-4 print:p-0 print:border-none">
+          <div id="printable-fee-history" className="print-a4-page print-no-break bg-white rounded-2xl shadow-2xl max-w-xl w-full p-6 border border-slate-200 space-y-4 print:p-0 print:border-none">
             <div className="text-center pb-3 border-b-2 border-slate-800">
               <h2 className="text-base font-black text-slate-900">JIPAS</h2>
               <p className="text-[10px] text-slate-500">Comprehensive Student Account Statement</p>

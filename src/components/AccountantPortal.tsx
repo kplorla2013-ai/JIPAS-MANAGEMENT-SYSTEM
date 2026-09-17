@@ -2290,7 +2290,7 @@ export default function AccountantPortal({
       {/* Official Printable Receipt Modal */}
       {activeReceipt && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 space-y-5 relative">
+          <div id="printable-receipt" className="print-a4-page print-no-break bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 space-y-5 relative">
             <button
               onClick={() => setActiveReceipt(null)}
               className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 font-bold text-sm w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center"

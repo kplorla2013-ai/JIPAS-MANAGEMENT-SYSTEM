@@ -311,4 +311,28 @@ select[class*="bg-[#"]:disabled {
   .print\:hidden {
     display: none !important;
   }
+
+  /* Target specific container IDs for receipts and reports */
+  #printable-terminal-report,
+  #printable-fee-history,
+  #printable-receipt {
+    background: #ffffff !important;
+    color: #000000 !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 210mm !important;
+    box-sizing: border-box !important;
+    margin: 0 auto !important;
+  }
+
+  /* Force high-contrast black-on-white text for clarity */
+  #printable-terminal-report *,
+  #printable-fee-history *,
+  #printable-receipt * {
+    color: #000000 !important;
+    background: transparent !important;
+    border-color: #1e293b !important; /* slate-800 for high-contrast border grids */
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
 }

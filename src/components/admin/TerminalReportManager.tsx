@@ -933,7 +933,7 @@ export default function TerminalReportManager({
       {/* STUDENT REPORT CARD PREVIEW MODAL */}
       {viewingReport && (
         <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fadeIn overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 sm:p-8 border border-slate-200 space-y-6 my-8 print:m-0 print:p-4 print:shadow-none">
+          <div id="printable-terminal-report" className="print-a4-page print-no-break bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 sm:p-8 border border-slate-200 space-y-6 my-8 print:m-0 print:p-4 print:shadow-none">
             {/* Ghana GES & School Official Header */}
             <div className="text-center border-b-2 border-slate-900 pb-4 flex flex-col items-center relative">
               <div className="text-[10px] font-black tracking-widest text-blue-700 uppercase mb-1">
@@ -1267,9 +1267,9 @@ export default function TerminalReportManager({
             </div>
 
             {/* Printable Class Cards List */}
-            <div ref={batchPrintContainerRef} className="space-y-12 bg-white">
+            <div ref={batchPrintContainerRef} id="printable-terminal-report" className="space-y-12 bg-white">
               {classReports.map((rep, idx) => (
-                <div key={idx} className="p-6 border-2 border-slate-800 rounded-2xl space-y-4 break-after-page">
+                <div key={idx} className="print-a4-page print-no-break p-6 border-2 border-slate-800 rounded-2xl space-y-4 break-after-page">
                   <div className="text-center border-b border-slate-400 pb-3 flex flex-col items-center">
                     <div className="text-[10px] font-black uppercase tracking-widest text-blue-700">Republic of Ghana • GES Accredited</div>
                     <h3 className="text-xl font-black text-slate-900">JIPAS</h3>
