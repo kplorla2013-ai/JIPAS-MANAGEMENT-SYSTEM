@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { getSchoolLogo } from './JIPASLogo';
 import { StudentBill, PaymentRecord, SchoolExpenseRecord, Student } from '../../types';
 import { Building2, TrendingUp, TrendingDown, DollarSign, Wallet, PieChart, Printer, Download, CheckCircle2, ArrowUpRight } from 'lucide-react';
 
@@ -110,13 +111,20 @@ export const DepartmentalFinancialSummary: React.FC<DepartmentalFinancialSummary
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    const logoSrc = getSchoolLogo();
+    const absoluteLogoSrc = logoSrc.startsWith('http') || logoSrc.startsWith('data:') 
+      ? logoSrc 
+      : window.location.origin + (logoSrc.startsWith('/') ? '' : '/') + logoSrc;
+
     printWindow.document.write(`
       <html>
         <head>
           <title>JIPAS Departmental Financial Breakdown Report</title>
           <style>
             body { font-family: system-ui, sans-serif; padding: 30px; color: #0f172a; }
-            h1 { color: #1e1b4b; font-size: 20px; margin-bottom: 4px; }
+            .header-wrap { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+            .school-logo { width: 32px; height: 32px; object-fit: contain; }
+            h1 { color: #1e1b4b; font-size: 20px; margin: 0; }
             .subtitle { color: #64748b; font-size: 12px; margin-bottom: 24px; }
             .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 24px; }
             .card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; }
@@ -131,7 +139,10 @@ export const DepartmentalFinancialSummary: React.FC<DepartmentalFinancialSummary
           </style>
         </head>
         <body>
-          <h1>JIPAS Educational Complex — Departmental Financial Summary</h1>
+          <div class="header-wrap">
+            <img src="${absoluteLogoSrc}" alt="School Crest" class="school-logo" />
+            <h1>JIPAS Educational Complex — Departmental Financial Summary</h1>
+          </div>
           <div class="subtitle">Generated on ${new Date().toLocaleString()} | Currency: CFA (XOF/XAF)</div>
           
           <div class="grid">

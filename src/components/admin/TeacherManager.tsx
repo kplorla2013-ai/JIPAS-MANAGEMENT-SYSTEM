@@ -3,15 +3,15 @@ import {
   UserCheck, Users, Plus, Pencil, Trash2, Calendar, CheckCircle2, 
   XCircle, Clock, Search, BookOpen, GraduationCap, Phone, Mail, 
   AlertTriangle, Save, Download, FileText, Check, Award, Layers,
-  Sparkles, Filter, X, CreditCard, Camera, QrCode
+  Sparkles, Filter, X, CreditCard, Camera, QrCode, AlertCircle, Send
 } from 'lucide-react';
-import { Teacher, TeacherAssignmentItem, TeacherAttendanceRecord } from '../../types';
+import { Teacher, TeacherAssignmentItem, TeacherAttendanceRecord, NotificationItem } from '../../types';
 import PhotoUploader from '../common/PhotoUploader';
 import TeacherIdCardGenerator from './TeacherIdCardGenerator';
 import TeacherAttendanceReport from './TeacherAttendanceReport';
 import TeacherAttendanceStats from './TeacherAttendanceStats';
 import TeacherQrAttendanceModal from '../common/TeacherQrAttendanceModal';
-import { saveTeacher, deleteTeacher, subscribeTeacherAttendance, saveTeacherAttendanceRecord } from '../../services/dbService';
+import { saveTeacher, deleteTeacher, subscribeTeacherAttendance, saveTeacherAttendanceRecord, saveNotification } from '../../services/dbService';
 
 interface TeacherManagerProps {
   activeModule: string;
@@ -112,6 +112,11 @@ export default function TeacherManager({
   const [teachersList, setTeachersList] = useState<Teacher[]>(initialTeachers);
   const [assignments, setAssignments] = useState<TeacherAssignmentItem[]>(INITIAL_TEACHER_ASSIGNMENTS);
   const [attendanceRecords, setAttendanceRecords] = useState<TeacherAttendanceRecord[]>(INITIAL_TEACHER_ATTENDANCE);
+  
+  const [queryingTeacher, setQueryingTeacher] = useState<Teacher | null>(null);
+  const [queryMessage, setQueryMessage] = useState('');
+  const [querySeverity, setQuerySeverity] = useState('Warning');
+  const [queryToast, setQueryToast] = useState(false);
 
   useEffect(() => {
     setTeachersList(initialTeachers);
@@ -656,6 +661,17 @@ export default function TeacherManager({
                       <td className="p-3 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <button
+                            onClick={() => {
+                              setQueryingTeacher(teacher);
+                              setQueryMessage('');
+                              setQuerySeverity('Warning');
+                            }}
+                            title="Send Query / Alert to Teacher"
+                            className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                          >
+                            <AlertCircle className="w-3.5 h-3.5" />
+                          </button>
+                          <button
                             onClick={() => onNavigate?.('teacher_id_cards')}
                             title="Generate Staff ID Card"
                             className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold transition-colors cursor-pointer"
@@ -720,6 +736,16 @@ export default function TeacherManager({
                   </div>
 
                   <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100">
+                    <button
+                      onClick={() => {
+                        setQueryingTeacher(teacher);
+                        setQueryMessage('');
+                        setQuerySeverity('Warning');
+                      }}
+                      className="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <AlertCircle className="w-3.5 h-3.5" /> Query
+                    </button>
                     <button
                       onClick={() => onNavigate?.('teacher_id_cards')}
                       className="px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
@@ -1366,6 +1392,114 @@ export default function TeacherManager({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* QUERY TEACHER MODAL */}
+      {queryingTeacher && (
+        <div 
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setQueryingTeacher(null)}
+        >
+          <div 
+            className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-scale-in"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="bg-slate-50 border-b border-slate-100 p-4 sm:p-6 flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-rose-600" />
+                  Query Faculty Member
+                </h3>
+                <p className="text-xs text-slate-500 font-medium mt-1">
+                  Send an official query or warning to {queryingTeacher.name}
+                </p>
+              </div>
+              <button 
+                onClick={() => setQueryingTeacher(null)}
+                className="w-8 h-8 flex items-center justify-center bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-full transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="p-4 sm:p-6 space-y-4 text-sm font-medium">
+              {queryToast && (
+                <div className="bg-emerald-600 text-white px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" />
+                  Query dispatched successfully and logged to staff file!
+                </div>
+              )}
+              
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Severity Level</label>
+                <div className="grid grid-cols-3 gap-3">
+                  {['Notice', 'Warning', 'Query'].map((lvl) => (
+                    <button
+                      key={lvl}
+                      onClick={() => setQuerySeverity(lvl)}
+                      className={`py-2 rounded-xl border text-xs font-bold transition-colors ${
+                        querySeverity === lvl 
+                          ? 'bg-rose-600 text-white border-rose-600'
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-rose-300 hover:bg-rose-50'
+                      }`}
+                    >
+                      {lvl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Query Details</label>
+                <textarea
+                  className="w-full border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-rose-500 outline-none text-slate-800"
+                  rows={4}
+                  placeholder={`Detail the specific issue regarding ${queryingTeacher.name}...`}
+                  value={queryMessage}
+                  onChange={(e) => setQueryMessage(e.target.value)}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setQueryingTeacher(null)}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!queryMessage.trim()) return;
+                    const queryNote: NotificationItem = {
+                      id: `notif-${Date.now()}`,
+                      title: `Official ${querySeverity}`,
+                      message: queryMessage,
+                      date: new Date().toISOString(),
+                      type: 'system',
+                      read: false,
+                      targetRole: 'Teacher',
+                      targetUserId: queryingTeacher.id
+                    };
+                    try {
+                      await saveNotification(queryNote);
+                      setQueryToast(true);
+                      setTimeout(() => {
+                        setQueryToast(false);
+                        setQueryingTeacher(null);
+                      }, 2000);
+                    } catch (e) {
+                      console.error('Failed to send query:', e);
+                    }
+                  }}
+                  disabled={!queryMessage.trim()}
+                  className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-bold rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
+                >
+                  <Send className="w-4 h-4" /> Dispatch Query
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

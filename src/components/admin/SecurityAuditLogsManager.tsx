@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getSchoolLogo } from '../common/JIPASLogo';
 import { SecurityAuditLog } from '../../types';
 import { getStoredSecurityAuditLogs, saveStoredSecurityAuditLogs, recordSecurityAuditLog } from '../../services/storageService';
 import { ShieldCheck, Search, Filter, Download, Printer, UserCheck, Clock, ShieldAlert, Key, Lock, Plus } from 'lucide-react';
@@ -50,13 +51,20 @@ export const SecurityAuditLogsManager: React.FC = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    const logoSrc = getSchoolLogo();
+    const absoluteLogoSrc = logoSrc.startsWith('http') || logoSrc.startsWith('data:') 
+      ? logoSrc 
+      : window.location.origin + (logoSrc.startsWith('/') ? '' : '/') + logoSrc;
+
     printWindow.document.write(`
       <html>
         <head>
           <title>JIPAS System Security & Audit Log Report</title>
           <style>
             body { font-family: system-ui, sans-serif; padding: 30px; color: #0f172a; }
-            h1 { color: #1e1b4b; margin-bottom: 4px; font-size: 20px; }
+            .header-wrap { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+            .school-logo { width: 32px; height: 32px; object-fit: contain; }
+            h1 { color: #1e1b4b; margin: 0; font-size: 20px; }
             .subtitle { color: #64748b; font-size: 12px; margin-bottom: 20px; }
             table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 15px; }
             th { background: #0f172a; color: white; text-align: left; padding: 8px; font-size: 10px; text-transform: uppercase; }
@@ -65,7 +73,10 @@ export const SecurityAuditLogsManager: React.FC = () => {
           </style>
         </head>
         <body>
-          <h1>JIPAS Educational Complex — System Security & Role Audit Trail</h1>
+          <div class="header-wrap">
+            <img src="${absoluteLogoSrc}" alt="School Crest" class="school-logo" />
+            <h1>JIPAS Educational Complex — System Security & Role Audit Trail</h1>
+          </div>
           <div class="subtitle">Generated on ${new Date().toLocaleString()} | Target: Role Modifications & Privilege Changes</div>
           <table>
             <thead>

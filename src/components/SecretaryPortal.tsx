@@ -19,7 +19,7 @@ import {
   getStoredClasses
 } from '../services/storageService';
 import { saveStudent } from '../services/dbService';
-import JIPASLogo from './common/JIPASLogo';
+import JIPASLogo, { getSchoolLogo } from './common/JIPASLogo';
 import QuickActionSpeedDial from './common/QuickActionSpeedDial';
 import ExpenseManager from './common/ExpenseManager';
 import BankDepositManager from './common/BankDepositManager';
@@ -591,6 +591,11 @@ export default function SecretaryPortal({
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    const logoSrc = getSchoolLogo();
+    const absoluteLogoSrc = logoSrc.startsWith('http') || logoSrc.startsWith('data:') 
+      ? logoSrc 
+      : window.location.origin + (logoSrc.startsWith('/') ? '' : '/') + logoSrc;
+
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -599,6 +604,7 @@ export default function SecretaryPortal({
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 30px; color: #0f172a; max-width: 600px; margin: 0 auto; }
             .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
+            .school-logo { width: 60px; height: 60px; object-fit: contain; margin-bottom: 10px; }
             .school-title { font-size: 20px; font-weight: 900; text-transform: uppercase; margin: 0; }
             .sub-title { font-size: 11px; color: #64748b; margin: 2px 0 0 0; }
             .receipt-badge { display: inline-block; background: #0f172a; color: #fff; font-size: 11px; font-weight: bold; padding: 3px 10px; border-radius: 4px; margin-top: 8px; }
@@ -614,6 +620,7 @@ export default function SecretaryPortal({
         </head>
         <body>
           <div class="header">
+            <img src="${absoluteLogoSrc}" alt="School Crest" class="school-logo" />
             <h1 class="school-title">JIPAS Educational Complex</h1>
             <p class="sub-title">GES Accredited • P.O. Box 1234, Accra, Ghana • Tel: +233 24 975 5593</p>
             <div class="receipt-badge">OFFICIAL SECRETARIAL FEE RECEIPT</div>

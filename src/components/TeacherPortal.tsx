@@ -4073,9 +4073,7 @@ export default function TeacherPortal({
                       {/* Crest & Header Layout */}
                       <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left justify-between gap-4 border-b-2 border-slate-950 pb-5">
                         <div className="flex items-center gap-3">
-                          <div className="w-16 h-16 rounded-full bg-blue-900 text-white flex items-center justify-center font-black text-2xl shadow-inner border-2 border-slate-950 shrink-0">
-                            J
-                          </div>
+                          <JIPASLogo size="lg" rounded={false} className="shrink-0 drop-shadow-sm" />
                           <div>
                             <h1 className="text-lg font-black text-slate-950 uppercase tracking-tight leading-tight">
                               Junior High Portal Academic System

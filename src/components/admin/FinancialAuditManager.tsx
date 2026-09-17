@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { getSchoolLogo } from '../common/JIPASLogo';
 import { 
   FinancialAuditReport,
   Student,
@@ -160,6 +161,11 @@ export default function FinancialAuditManager({
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    const logoSrc = getSchoolLogo();
+    const absoluteLogoSrc = logoSrc.startsWith('http') || logoSrc.startsWith('data:') 
+      ? logoSrc 
+      : window.location.origin + (logoSrc.startsWith('/') ? '' : '/') + logoSrc;
+
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -168,6 +174,7 @@ export default function FinancialAuditManager({
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 40px; color: #0f172a; max-width: 800px; margin: 0 auto; }
             .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 16px; margin-bottom: 24px; }
+            .school-logo { width: 50px; height: 50px; object-fit: contain; margin-bottom: 8px; }
             .school-name { font-size: 24px; font-weight: 900; text-transform: uppercase; margin: 0; color: #0f172a; }
             .sub { font-size: 12px; color: #64748b; margin-top: 4px; }
             .badge { display: inline-block; background: #0f172a; color: white; padding: 4px 14px; font-size: 12px; font-weight: bold; border-radius: 4px; margin-top: 10px; }
@@ -187,6 +194,7 @@ export default function FinancialAuditManager({
         </head>
         <body>
           <div class="header">
+            <img src="${absoluteLogoSrc}" alt="School Crest" class="school-logo" />
             <h1 class="school-name">JIPAS Educational Complex</h1>
             <p class="sub">Official Internal Audit & Financial Examination Board • Accra, Ghana</p>
             <div class="badge">OFFICIAL FINANCIAL AUDIT CERTIFICATION REPORT</div>

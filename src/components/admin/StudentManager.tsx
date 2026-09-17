@@ -4,7 +4,7 @@ import {
   History, Plus, Pencil, Trash2, Search, CheckCircle2, AlertTriangle, 
   Printer, Download, Save, QrCode, Shield, Phone, Mail, Check, RotateCcw,
   Loader2, Clock, CheckCheck, XCircle, Inbox, UserCheck, FileText,
-  FileSpreadsheet, Sparkles, Upload, AlertCircle, X, BookOpen
+  FileSpreadsheet, Sparkles, Upload, AlertCircle, ShieldAlert, X, BookOpen
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { Student, PromotionRecord, CourseItem, ClassItem, DepartmentItem, HouseItem } from '../../types';
@@ -53,6 +53,10 @@ export default function StudentManager({
   const [searchQuery, setSearchQuery] = useState('');
   const [classFilter, setClassFilter] = useState('all');
   const [courseFilter, setCourseFilter] = useState('all');
+  
+  // Individual Promote/Repeat state
+  const [individualPromoteStudent, setIndividualPromoteStudent] = useState<Student | null>(null);
+  const [individualPromoteTarget, setIndividualPromoteTarget] = useState<string>('');
   const [genderFilter, setGenderFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Active' | 'Pending'>('all');
 
@@ -1346,6 +1350,16 @@ export default function StudentManager({
                             ) : null}
 
                             <button
+                              onClick={() => {
+                                setIndividualPromoteStudent(st);
+                                setIndividualPromoteTarget(st.className);
+                              }}
+                              title="Promote or Repeat Student"
+                              className="p-1.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                            >
+                              <ArrowUpRight className="w-3.5 h-3.5" />
+                            </button>
+                            <button
                               onClick={() => handleOpenEditStudent(st)}
                               title="Edit Student Record"
                               className="p-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
@@ -1434,6 +1448,15 @@ export default function StudentManager({
                             <CheckCheck className="w-3.5 h-3.5" /> Approve
                           </button>
                         )}
+                        <button
+                          onClick={() => {
+                            setIndividualPromoteStudent(st);
+                            setIndividualPromoteTarget(st.className);
+                          }}
+                          className="px-3 py-1.5 bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
+                        >
+                          <ArrowUpRight className="w-3.5 h-3.5" /> Promote
+                        </button>
                         <button
                           onClick={() => handleOpenEditStudent(st)}
                           className="px-3 py-1.5 bg-amber-500 text-white rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
@@ -2433,6 +2456,106 @@ export default function StudentManager({
                       </span>
                     </>
                   )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* INDIVIDUAL PROMOTE/REPEAT MODAL */}
+      {individualPromoteStudent && (
+        <div 
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setIndividualPromoteStudent(null)}
+        >
+          <div 
+            className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-in"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="bg-slate-50 border-b border-slate-100 p-4 sm:p-6 flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                  <ArrowUpRight className="w-5 h-5 text-indigo-600" />
+                  Promote / Repeat Student
+                </h3>
+                <p className="text-xs text-slate-500 font-medium mt-1">
+                  Adjust academic level for {individualPromoteStudent.fullName}
+                </p>
+              </div>
+              <button 
+                onClick={() => setIndividualPromoteStudent(null)}
+                className="w-8 h-8 flex items-center justify-center bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-full transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="p-4 sm:p-6 space-y-4 text-sm font-medium">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <span className="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Current Class</span>
+                  <span className="font-bold text-slate-900">{individualPromoteStudent.className}</span>
+                </div>
+                <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+                  <span className="block text-[10px] text-indigo-600 uppercase tracking-wider mb-1">Target Class</span>
+                  <select
+                    value={individualPromoteTarget}
+                    onChange={(e) => setIndividualPromoteTarget(e.target.value)}
+                    className="w-full bg-transparent font-bold text-indigo-900 outline-none"
+                  >
+                    {classes.map(c => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              
+              <div className="bg-blue-50 text-blue-800 p-4 rounded-xl text-xs flex gap-3 items-start border border-blue-100">
+                <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+                <p>
+                  Setting the target class to the <strong>same class</strong> will record this action as a "Repeat". Moving them to a higher class records it as a "Promotion".
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setIndividualPromoteStudent(null)}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    const isRepeat = individualPromoteStudent.className === individualPromoteTarget;
+                    const actionLabel = isRepeat ? 'Repeated' : 'Promoted';
+                    
+                    setStudentsList(prev => prev.map(s => {
+                      if (s.id === individualPromoteStudent.id) {
+                        return { ...s, className: individualPromoteTarget };
+                      }
+                      return s;
+                    }));
+                    
+                    const newLog: PromotionRecord = {
+                      id: `pr-${Date.now()}`,
+                      date: new Date().toISOString().split('T')[0],
+                      fromClass: individualPromoteStudent.className,
+                      toClass: individualPromoteTarget,
+                      academicYear: '2025-2026',
+                      studentCount: 1,
+                      promotedBy: 'Marcus Prosper (Admin)',
+                      notes: `${actionLabel} ${individualPromoteStudent.fullName} ${isRepeat ? 'in' : 'from'} ${individualPromoteStudent.className} ${isRepeat ? '' : `to ${individualPromoteTarget}`}`
+                    };
+                    
+                    setPromotionHistory(prev => [newLog, ...prev]);
+                    setIndividualPromoteStudent(null);
+                    setPromotionToast(true);
+                    setTimeout(() => setPromotionToast(false), 4000);
+                  }}
+                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors text-sm"
+                >
+                  {individualPromoteStudent.className === individualPromoteTarget ? 'Repeat Student' : 'Promote Student'}
                 </button>
               </div>
             </div>

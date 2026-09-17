@@ -1271,7 +1271,8 @@ export default function TerminalReportManager({
               {classReports.map((rep, idx) => (
                 <div key={idx} className="print-a4-page print-no-break p-6 border-2 border-slate-800 rounded-2xl space-y-4 break-after-page">
                   <div className="text-center border-b border-slate-400 pb-3 flex flex-col items-center">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-blue-700">Republic of Ghana • GES Accredited</div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-blue-700 mb-1">Republic of Ghana • GES Accredited</div>
+                    <JIPASLogo size="sm" className="mb-2" />
                     <h3 className="text-xl font-black text-slate-900">JIPAS</h3>
                     <div className="text-xs font-bold text-slate-600">Continuous Assessment & Terminal Report Card • {selectedAcademicYear} ({selectedTerm})</div>
                   </div>

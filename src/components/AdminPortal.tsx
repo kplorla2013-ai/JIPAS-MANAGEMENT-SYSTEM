@@ -22,6 +22,7 @@ import FinancialAuditManager from './admin/FinancialAuditManager';
 import UserPortalReviewManager from './admin/UserPortalReviewManager';
 import SecurityAuditLogsManager from './admin/SecurityAuditLogsManager';
 import DepartmentalFinancialSummary from './common/DepartmentalFinancialSummary';
+import FinancialAuditTrail from './common/FinancialAuditTrail';
 import ExpenseManager from './common/ExpenseManager';
 import QuickActionSpeedDial from './common/QuickActionSpeedDial';
 import JIPASLogo from './common/JIPASLogo';
@@ -224,6 +225,7 @@ const ADMIN_NAV_GROUPS = [
     icon: DollarSign,
     items: [
       { id: 'financial_audit', label: 'Financial Records Audit', icon: ShieldCheck },
+      { id: 'audit_trail', label: 'Financial Audit Trail', icon: ShieldCheck },
       { id: 'departmental_financial_summary', label: 'Departmental Financial Summary', icon: Building2 },
       { id: 'institutional_expenses', label: 'Institutional Expenses', icon: Wallet },
       { id: 'payment_settings', label: 'Payment Channels & Proofs', icon: CreditCard },
@@ -2043,6 +2045,17 @@ export default function AdminPortal({
           />
         )}
 
+        {/* 7A.1 FINANCIAL AUDIT TRAIL MODULE */}
+        {activeModule === 'audit_trail' && (
+          <div className="h-[calc(100vh-120px)] pb-10">
+            <FinancialAuditTrail 
+              payments={payments}
+              expenses={expenses}
+              bills={bills}
+            />
+          </div>
+        )}
+
         {/* 7A1. SECURITY AUDIT LOGS MANAGER MODULE */}
         {(activeModule === 'security_audit' || activeModule === 'security_audit_logs') && (
           <SecurityAuditLogsManager />
@@ -2055,6 +2068,14 @@ export default function AdminPortal({
             bills={bills}
             payments={payments}
             expenses={expenses}
+          />
+        )}
+
+        {/* 7A3. USERS PORTAL REVIEW & GOVERNANCE MODULE */}
+        {(activeModule === 'users_portal_review' || activeModule === 'portal_review' || activeModule === 'users_review') && (
+          <UserPortalReviewManager
+            studentsCount={students.length}
+            teachersCount={teachers.length}
           />
         )}
 

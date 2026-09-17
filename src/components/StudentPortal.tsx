@@ -4,7 +4,7 @@ import {
   PaymentSettingsConfig, FeeSubmissionItem, ClassReportBroadcast 
 } from '../types';
 import SchoolCalendarView from './SchoolCalendarView';
-import JIPASLogo from './common/JIPASLogo';
+import JIPASLogo, { getSchoolLogo } from './common/JIPASLogo';
 import LanguageSwitcher from './common/LanguageSwitcher';
 import { subscribePaymentSettings, subscribeFeeSubmissions, saveFeeSubmission, saveNotification, subscribeClassBroadcasts } from '../services/dbService';
 import { INITIAL_PAYMENT_SETTINGS, getStoredStudents, saveStoredStudents, getStoredUsers, saveStoredUsers } from '../services/storageService';
@@ -323,6 +323,11 @@ export default function StudentPortal({
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    const logoSrc = getSchoolLogo();
+    const absoluteLogoSrc = logoSrc.startsWith('http') || logoSrc.startsWith('data:') 
+      ? logoSrc 
+      : window.location.origin + (logoSrc.startsWith('/') ? '' : '/') + logoSrc;
+
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -332,6 +337,7 @@ export default function StudentPortal({
             @page { size: A5 landscape; margin: 10mm; }
             body { font-family: system-ui, -apple-system, sans-serif; color: #0f172a; padding: 20px; margin: 0; background: #fff; }
             .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 15px; }
+            .school-logo { width: 40px; height: 40px; object-fit: contain; margin-bottom: 8px; }
             .title { font-size: 18px; font-weight: 900; color: #1e1b4b; text-transform: uppercase; }
             .subtitle { font-size: 11px; font-weight: 800; color: #0284c7; text-transform: uppercase; margin-top: 2px; }
             .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 11px; margin-bottom: 15px; }
@@ -346,6 +352,7 @@ export default function StudentPortal({
         </head>
         <body>
           <div class="header">
+            <img src="${absoluteLogoSrc}" alt="School Crest" class="school-logo" />
             <div class="title">JIPAS EDUCATIONAL COMPLEX</div>
             <div class="subtitle">OFFICIAL FEE PAYMENT RECEIPT</div>
             <div style="font-size: 10px; color: #64748b;">Accra, Ghana &bull; Official Student Bursary Receipt</div>
@@ -405,6 +412,11 @@ export default function StudentPortal({
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    const logoSrc = getSchoolLogo();
+    const absoluteLogoSrc = logoSrc.startsWith('http') || logoSrc.startsWith('data:') 
+      ? logoSrc 
+      : window.location.origin + (logoSrc.startsWith('/') ? '' : '/') + logoSrc;
+
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -414,6 +426,7 @@ export default function StudentPortal({
             @page { size: A4 portrait; margin: 15mm; }
             body { font-family: system-ui, -apple-system, sans-serif; color: #0f172a; padding: 20px; margin: 0; background: #fff; }
             .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
+            .school-logo { width: 50px; height: 50px; object-fit: contain; margin-bottom: 10px; }
             .title { font-size: 20px; font-weight: 900; color: #1e1b4b; text-transform: uppercase; }
             .subtitle { font-size: 12px; font-weight: 800; color: #0284c7; text-transform: uppercase; margin-top: 2px; }
             .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 11px; margin-bottom: 20px; }
@@ -429,6 +442,7 @@ export default function StudentPortal({
         </head>
         <body>
           <div class="header">
+            <img src="${absoluteLogoSrc}" alt="School Crest" class="school-logo" />
             <div class="title">JIPAS EDUCATIONAL COMPLEX</div>
             <div class="subtitle">OFFICIAL TERMINAL ACADEMIC PERFORMANCE REPORT</div>
             <div style="font-size: 11px; color: #64748b; margin-top: 3px;">Accra, Ghana &bull; Academic Assessment Bureau</div>
@@ -498,6 +512,11 @@ export default function StudentPortal({
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    const logoSrc = getSchoolLogo();
+    const absoluteLogoSrc = logoSrc.startsWith('http') || logoSrc.startsWith('data:') 
+      ? logoSrc 
+      : window.location.origin + (logoSrc.startsWith('/') ? '' : '/') + logoSrc;
+
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -506,6 +525,8 @@ export default function StudentPortal({
           <style>
             @page { size: 85.6mm 54mm; margin: 0; }
             body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 12px; background: #0f172a; color: #fff; width: 85.6mm; height: 54mm; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; }
+            .header-flex { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 2px; }
+            .school-logo { width: 14px; height: 14px; object-fit: contain; }
             .title { font-size: 11px; font-weight: 900; text-align: center; text-transform: uppercase; color: #38bdf8; letter-spacing: 0.5px; }
             .sub { font-size: 7px; text-align: center; color: #cbd5e1; text-transform: uppercase; }
             .content { display: flex; gap: 10px; align-items: center; margin-top: 6px; }
@@ -517,7 +538,10 @@ export default function StudentPortal({
         </head>
         <body>
           <div>
-            <div class="title">JIPAS EDUCATIONAL COMPLEX</div>
+            <div class="header-flex">
+              <img src="${absoluteLogoSrc}" alt="Crest" class="school-logo" />
+              <div class="title">JIPAS EDUCATIONAL COMPLEX</div>
+            </div>
             <div class="sub">OFFICIAL STUDENT IDENTIFICATION CARD</div>
             <div class="content">
               <div class="avatar">${student.fullName.charAt(0)}</div>
@@ -544,6 +568,11 @@ export default function StudentPortal({
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    const logoSrc = getSchoolLogo();
+    const absoluteLogoSrc = logoSrc.startsWith('http') || logoSrc.startsWith('data:') 
+      ? logoSrc 
+      : window.location.origin + (logoSrc.startsWith('/') ? '' : '/') + logoSrc;
+
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -553,6 +582,7 @@ export default function StudentPortal({
             @page { size: A4; margin: 15mm; }
             body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #0f172a; padding: 20px; margin: 0; background: #fff; }
             .header-table { width: 100%; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px; }
+            .school-logo { width: 50px; height: 50px; object-fit: contain; margin-bottom: 8px; }
             .school-title { font-size: 20px; font-weight: 900; color: #1e1b4b; text-transform: uppercase; letter-spacing: -0.5px; }
             .doc-sub { font-size: 12px; font-weight: 800; color: #0284c7; text-transform: uppercase; margin-top: 4px; }
             .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; font-size: 11px; }
@@ -574,6 +604,7 @@ export default function StudentPortal({
           <table class="header-table">
             <tr>
               <td>
+                <img src="${absoluteLogoSrc}" alt="School Crest" class="school-logo" />
                 <div class="school-title">JIPAS EDUCATIONAL COMPLEX</div>
                 <div class="doc-sub">OFFICIAL STUDENT FEE PAYMENT & REMAINING ARREARS STATEMENT</div>
                 <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Accra, Ghana • Official Financial Control Desk</div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { StudentBill, PaymentRecord, Student, FeeOptionItem, NotificationItem, DailyFeeAuditSummary, SecretaryDailySummary, User as UserType } from '../types';
-import JIPASLogo from './common/JIPASLogo';
+import JIPASLogo, { getSchoolLogo } from './common/JIPASLogo';
 import PaidAsSelector from './common/PaidAsSelector';
 import FeesSettingsManager from './common/FeesSettingsManager';
 import OverdueFeeAlertsManager from './admin/OverdueFeeAlertsManager';
@@ -14,6 +14,7 @@ import ExpenseManager from './common/ExpenseManager';
 import BankDepositManager from './common/BankDepositManager';
 import FinancialDataImporter from './common/FinancialDataImporter';
 import DepartmentalFinancialSummary from './common/DepartmentalFinancialSummary';
+import FinancialAuditTrail from './common/FinancialAuditTrail';
 import { runDailyFeeAudit, isDailyAuditDueToday, getStoredAuditSummary, getFormattedTimestamp } from '../services/feeAuditService';
 import { 
   getStoredSecretarySummaries, 
@@ -97,6 +98,11 @@ export default function AccountantPortal({
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    const logoSrc = getSchoolLogo();
+    const absoluteLogoSrc = logoSrc.startsWith('http') || logoSrc.startsWith('data:') 
+      ? logoSrc 
+      : window.location.origin + (logoSrc.startsWith('/') ? '' : '/') + logoSrc;
+
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -106,6 +112,7 @@ export default function AccountantPortal({
             @page { size: A5 landscape; margin: 10mm; }
             body { font-family: system-ui, -apple-system, sans-serif; color: #0f172a; padding: 20px; margin: 0; background: #fff; }
             .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 15px; }
+            .school-logo { width: 40px; height: 40px; object-fit: contain; margin-bottom: 8px; }
             .title { font-size: 18px; font-weight: 900; color: #1e1b4b; text-transform: uppercase; }
             .subtitle { font-size: 11px; font-weight: 800; color: #0284c7; text-transform: uppercase; margin-top: 2px; }
             .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 11px; margin-bottom: 15px; }
@@ -120,6 +127,7 @@ export default function AccountantPortal({
         </head>
         <body>
           <div class="header">
+            <img src="${absoluteLogoSrc}" alt="School Crest" class="school-logo" />
             <div class="title">JIPAS EDUCATIONAL COMPLEX</div>
             <div class="subtitle">OFFICIAL FEE PAYMENT RECEIPT</div>
             <div style="font-size: 10px; color: #64748b;">Accra, Ghana &bull; Official Bursar & Accounts Desk</div>
@@ -1167,6 +1175,44 @@ export default function AccountantPortal({
                 </p>
               </div>
             </button>
+
+            <button
+              onClick={() => setActiveTab('audit-trail')}
+              className={`group p-4 rounded-2xl text-left transition-all duration-200 border cursor-pointer flex flex-col justify-between space-y-3 ${
+                activeTab === 'audit-trail'
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-md scale-[1.02]'
+                  : 'bg-gradient-to-br from-indigo-50/80 to-slate-50 hover:from-indigo-600 hover:to-indigo-700 border-indigo-100 hover:border-indigo-600 hover:text-white shadow-2xs hover:shadow-lg hover:-translate-y-1'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors shadow-xs ${
+                  activeTab === 'audit-trail'
+                    ? 'bg-white text-indigo-700'
+                    : 'bg-indigo-600 text-white group-hover:bg-white group-hover:text-indigo-700'
+                }`}>
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider transition-colors ${
+                  activeTab === 'audit-trail'
+                    ? 'bg-indigo-800 text-indigo-100'
+                    : 'bg-indigo-100 group-hover:bg-indigo-500 text-indigo-800 group-hover:text-white'
+                }`}>
+                  Governance
+                </span>
+              </div>
+              <div>
+                <h4 className={`font-extrabold text-xs transition-colors flex items-center gap-1 ${
+                  activeTab === 'audit-trail' ? 'text-white' : 'text-slate-900 group-hover:text-white'
+                }`}>
+                  Audit Trail
+                </h4>
+                <p className={`text-[11px] mt-0.5 line-clamp-2 transition-colors ${
+                  activeTab === 'audit-trail' ? 'text-indigo-100' : 'text-slate-500 group-hover:text-indigo-100'
+                }`}>
+                  Immutable log of fee collections & adjustments
+                </p>
+              </div>
+            </button>
           </div>
         </div>
       </div>
@@ -1180,6 +1226,15 @@ export default function AccountantPortal({
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.22, ease: 'easeOut' }}
         >
+          {/* AUDIT TRAIL TAB */}
+          {activeTab === 'audit-trail' && (
+            <FinancialAuditTrail 
+              payments={payments}
+              expenses={expenses}
+              bills={bills}
+            />
+          )}
+
           {/* OVERDUE ALERTS TAB */}
           {activeTab === 'overdue-alerts' && (
         <OverdueFeeAlertsManager
