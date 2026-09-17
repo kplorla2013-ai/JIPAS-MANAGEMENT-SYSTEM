@@ -499,7 +499,7 @@ export default function TeacherQrAttendanceModal({
             }`}
           >
             <Smartphone className="w-4 h-4" />
-            Live Camera Scan
+            SCAN  (to Sign-In/Out to register)
           </button>
 
           {!hideOfficeTerminal && (
@@ -662,7 +662,7 @@ export default function TeacherQrAttendanceModal({
                       onClick={startCamera}
                       className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors shadow-md flex items-center gap-2 mx-auto"
                     >
-                      <Camera className="w-4 h-4" /> Open & Activate Live Camera
+                      <Camera className="w-4 h-4" /> SCAN  (to Sign-In/Out to register)
                     </button>
                   </div>
                 )}

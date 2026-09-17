@@ -1,6 +1,6 @@
 {
   "name": "JIPAS",
-  "description": "Comprehensive School Management System for JIPAS with Admin, Teacher, Accountant, and Student portals, terminal reports, fee management, and school calendar.",
+  "description": "Comprehensive School Management System with Admin, Teacher, Accountant, Sub-Accountant, Secretary, and Student portals, Staff Payroll, Expenditure Tracking, Role Privileges Management, Secretary Fee Collections, and Financial Records Audit.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { StudentBill, PaymentRecord, Student, FeeOptionItem, NotificationItem, DailyFeeAuditSummary } from '../types';
+import { StudentBill, PaymentRecord, Student, FeeOptionItem, NotificationItem, DailyFeeAuditSummary, SecretaryDailySummary, User as UserType } from '../types';
 import JIPASLogo from './common/JIPASLogo';
 import PaidAsSelector from './common/PaidAsSelector';
 import FeesSettingsManager from './common/FeesSettingsManager';
@@ -9,17 +9,28 @@ import AccountantSidebar from './accountant/AccountantSidebar';
 import ActionRequiredFollowUpModal from './accountant/ActionRequiredFollowUpModal';
 import AutomatedFeeAlertModal from './accountant/AutomatedFeeAlertModal';
 import GlobalSearchHeader from './common/GlobalSearchHeader';
+import PayrollManager from './common/PayrollManager';
+import ExpenseManager from './common/ExpenseManager';
 import { runDailyFeeAudit, isDailyAuditDueToday, getStoredAuditSummary, getFormattedTimestamp } from '../services/feeAuditService';
+import { 
+  getStoredSecretarySummaries, 
+  saveStoredSecretarySummaries,
+  getStoredDepartments,
+  getStoredClasses,
+  getStoredExpenses
+} from '../services/storageService';
 import { 
   Calculator, CreditCard, DollarSign, Plus, FileText, 
   Search, Printer, Download, CheckCircle2, ArrowDownRight, Calendar, User, Check, Settings, AlertTriangle, Send,
-  RotateCw, Filter, Phone, MessageSquare, Clock, Sparkles
+  RotateCw, Filter, Phone, MessageSquare, Clock, Sparkles, Wallet, Receipt, Layers, ShieldCheck,
+  Users, BookOpen, ChevronRight, CheckCircle, RefreshCw, Building2, UserCheck
 } from 'lucide-react';
 
 interface AccountantPortalProps {
   bills: StudentBill[];
   payments: PaymentRecord[];
   students: Student[];
+  currentUser?: UserType;
   onAddPayment: (payment: PaymentRecord) => void;
   onUpdateBills?: (bills: StudentBill[]) => void;
   onAddNotification?: (notif: NotificationItem) => void;
@@ -31,10 +42,13 @@ export const VALID_ACCOUNTANT_TABS = new Set<string>([
   'bills',
   'new-payment',
   'fee-settings',
-  'overdue-alerts'
+  'overdue-alerts',
+  'expenses',
+  'secretary-records',
+  'payroll'
 ]);
 
-export type AccountantTab = 'collections' | 'bills' | 'new-payment' | 'fee-settings' | 'overdue-alerts';
+export type AccountantTab = 'collections' | 'bills' | 'new-payment' | 'fee-settings' | 'overdue-alerts' | 'expenses' | 'secretary-records' | 'payroll';
 
 export const getInitialAccountantTab = (): AccountantTab => {
   if (typeof window !== 'undefined') {
@@ -64,11 +78,100 @@ export default function AccountantPortal({
   bills, 
   payments, 
   students, 
+  currentUser,
   onAddPayment,
   onUpdateBills,
   onAddNotification
 }: AccountantPortalProps) {
   const [activeTab, setActiveTab] = useState<AccountantTab>(() => getInitialAccountantTab());
+
+  // Department & Class level selection for Fee Payment
+  const [paymentDept, setPaymentDept] = useState<string>('All');
+  const [customDeptInput, setCustomDeptInput] = useState<string>('');
+  const [paymentClass, setPaymentClass] = useState<string>('All');
+  const [studentRosterSearch, setStudentRosterSearch] = useState<string>('');
+
+  // Extract departments from stored data and student records
+  const availableDepartments = useMemo(() => {
+    const stored = getStoredDepartments().map(d => d.name);
+    const fromStudents = students.map(s => s.department).filter(Boolean);
+    const list = Array.from(new Set([...stored, ...fromStudents]));
+    return list.length > 0 ? list : ['Pre School', 'Primary School', 'Junior High School', 'Senior High School'];
+  }, [students]);
+
+  // Extract classes (filtered by selected department if not 'All')
+  const availableClasses = useMemo(() => {
+    const allStoredClasses = getStoredClasses();
+    const effectiveDept = customDeptInput.trim() || paymentDept;
+    
+    if (effectiveDept && effectiveDept !== 'All') {
+      const matchingStored = allStoredClasses.filter(c => {
+        const deptItem = getStoredDepartments().find(d => d.name === effectiveDept || d.name === c.department || d.id === (c as any).departmentId);
+        return (c.department && c.department.toLowerCase() === effectiveDept.toLowerCase()) ||
+               (deptItem && (c as any).departmentId === deptItem.id) ||
+               ((c as any).departmentName === effectiveDept);
+      }).map(c => c.name);
+
+      const matchingFromStudents = students
+        .filter(s => s.department?.toLowerCase() === effectiveDept.toLowerCase())
+        .map(s => s.className)
+        .filter(Boolean);
+
+      let classList = Array.from(new Set([...matchingStored, ...matchingFromStudents]));
+
+      if (classList.length === 0) {
+        const lower = effectiveDept.toLowerCase();
+        if (lower.includes('primary')) {
+          classList = ['Basic 1', 'Basic 2', 'Basic 3', 'Basic 4', 'Basic 5', 'Basic 6'];
+        } else if (lower.includes('junior') || lower.includes('jhs')) {
+          classList = ['JHS 1', 'JHS 2', 'JHS 3'];
+        } else if (lower.includes('pre') || lower.includes('nursery') || lower.includes('creche') || lower.includes('kg')) {
+          classList = ['Creche', 'Nursery 1', 'Nursery 2', 'KG 1', 'KG 2'];
+        } else if (lower.includes('senior') || lower.includes('shs')) {
+          classList = ['SHS 1', 'SHS 2', 'SHS 3'];
+        }
+      }
+
+      if (classList.length > 0) return classList;
+    }
+
+    const allStudentClasses = students.map(s => s.className).filter(Boolean);
+    return Array.from(new Set([...allStoredClasses.map(c => c.name), ...allStudentClasses]));
+  }, [students, paymentDept, customDeptInput]);
+
+  // Filtered students for fee payment based on department, class, and name search
+  const filteredStudentsForPayment = useMemo(() => {
+    const effectiveDept = customDeptInput.trim() || paymentDept;
+
+    return students.filter(st => {
+      // Department filter
+      if (effectiveDept && effectiveDept !== 'All') {
+        const deptMatches = 
+          (st.department && st.department.toLowerCase().includes(effectiveDept.toLowerCase())) ||
+          (effectiveDept.toLowerCase().includes('primary') && st.className?.toLowerCase().includes('basic')) ||
+          (effectiveDept.toLowerCase().includes('junior') && st.className?.toLowerCase().includes('jhs')) ||
+          (effectiveDept.toLowerCase().includes('pre') && (st.className?.toLowerCase().includes('kg') || st.className?.toLowerCase().includes('nursery') || st.className?.toLowerCase().includes('creche'))) ||
+          (effectiveDept.toLowerCase().includes('senior') && st.className?.toLowerCase().includes('shs'));
+        if (!deptMatches) return false;
+      }
+
+      // Class level filter
+      if (paymentClass !== 'All') {
+        if (st.className !== paymentClass) return false;
+      }
+
+      // Search query (search students by name, admission no, or roll no)
+      if (studentRosterSearch.trim()) {
+        const query = studentRosterSearch.toLowerCase();
+        const matchesName = st.fullName.toLowerCase().includes(query);
+        const matchesAdm = st.admissionNo.toLowerCase().includes(query);
+        const matchesRoll = st.rollNo?.toLowerCase().includes(query);
+        if (!matchesName && !matchesAdm && !matchesRoll) return false;
+      }
+
+      return true;
+    });
+  }, [students, paymentDept, customDeptInput, paymentClass, studentRosterSearch]);
 
   // Sync activeTab to localStorage and URL hash
   useEffect(() => {
@@ -237,6 +340,10 @@ export default function AccountantPortal({
     const pad = (n: number) => String(n).padStart(2, '0');
     const dateFormatted = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
+    const collectorName = currentUser?.name 
+      ? `${currentUser.name} (${currentUser.role === 'sub_accountant' ? 'Sub-Accountant' : 'Accountant'})`
+      : 'Frank Mensah (Accountant)';
+
     const newPayment: PaymentRecord = {
       id: `pay-${Date.now()}`,
       receiptNo: `RCT-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${Math.random().toString(16).slice(2, 8).toUpperCase()}`,
@@ -254,10 +361,30 @@ export default function AccountantPortal({
       balance: newBal,
       method: paymentMethod,
       status: newBal === 0 ? 'Fully Paid' : 'Partially Paid',
-      collectedBy: 'Denis Mawutor (Accountant)'
+      collectedBy: collectorName
     };
 
     onAddPayment(newPayment);
+
+    // Real-time bill arrears deduction
+    if (onUpdateBills && selectedBill) {
+      const updated = bills.map(b => {
+        if (b.id === selectedBill.id) {
+          const newPaidTotal = (b.paid || 0) + paidVal;
+          const updatedBal = Math.max(0, b.payable - newPaidTotal);
+          return {
+            ...b,
+            paid: newPaidTotal,
+            balance: updatedBal,
+            status: (updatedBal === 0 ? 'Fully Paid' : 'Partially Paid') as any,
+            actionRequired: updatedBal > 0 ? b.actionRequired : false
+          };
+        }
+        return b;
+      });
+      onUpdateBills(updated);
+    }
+
     setActiveReceipt(newPayment);
     setSuccessToast(true);
     setTimeout(() => setSuccessToast(false), 4000);
@@ -302,7 +429,8 @@ export default function AccountantPortal({
                 tabId === 'bills' ||
                 tabId === 'new-payment' ||
                 tabId === 'fee-settings' ||
-                tabId === 'overdue-alerts'
+                tabId === 'overdue-alerts' ||
+                tabId === 'payroll'
               )) {
                 setActiveTab(tabId as AccountantTab);
               }
@@ -340,8 +468,16 @@ export default function AccountantPortal({
             </div>
           </div>
 
-          <div className="relative z-10 flex gap-2">
+          <div className="relative z-10 flex flex-wrap gap-2">
             <button
+              type="button"
+              onClick={() => setActiveTab('expenses')}
+              className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white px-4 py-3 rounded-2xl text-xs font-bold shadow-lg shadow-rose-900/30 transition-all cursor-pointer"
+            >
+              <Receipt className="w-4 h-4" /> Enter Expenditure
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab('new-payment')}
               className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-2xl text-xs font-bold shadow-lg shadow-emerald-900/30 transition-all cursor-pointer"
             >
@@ -349,6 +485,22 @@ export default function AccountantPortal({
             </button>
           </div>
         </div>
+
+        {/* Sub-Accountant Notice if applicable */}
+        {currentUser?.role === 'sub_accountant' && (
+          <div className="bg-teal-950/80 border border-teal-500/40 text-teal-200 px-5 py-3 rounded-2xl text-xs flex items-center justify-between gap-3 shadow-inner">
+            <div className="flex items-center gap-2.5">
+              <UserCheck className="w-5 h-5 text-teal-400 shrink-0" />
+              <div>
+                <span className="font-bold text-white">Sub-Accountant Active:</span>{' '}
+                <span>Logged in as <strong>{currentUser.name}</strong> with role-governed financial privileges managed by Administrator.</span>
+              </div>
+            </div>
+            <span className="text-[10px] font-extrabold uppercase bg-teal-800 text-teal-100 px-2.5 py-1 rounded-lg border border-teal-600/50 shrink-0">
+              Sub-Accountant Access
+            </span>
+          </div>
+        )}
 
       {/* Automated Daily Fee Audit Banner */}
       <div className="bg-gradient-to-r from-slate-900 via-rose-950 to-slate-900 text-white rounded-2xl p-5 border border-rose-800/50 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -669,6 +821,123 @@ export default function AccountantPortal({
                   activeTab === 'fee-settings' ? 'text-indigo-100' : 'text-slate-500 group-hover:text-indigo-100'
                 }`}>
                   Configure fee breakdown, compulsory items & currencies
+                </p>
+              </div>
+            </button>
+
+            {/* Menu 6: Staff Payroll System */}
+            <button
+              onClick={() => setActiveTab('payroll')}
+              className={`group p-4 rounded-2xl text-left transition-all duration-200 border cursor-pointer flex flex-col justify-between space-y-3 ${
+                activeTab === 'payroll'
+                  ? 'bg-purple-600 text-white border-purple-600 shadow-md scale-[1.02]'
+                  : 'bg-gradient-to-br from-purple-50/80 to-slate-50 hover:from-purple-600 hover:to-purple-700 border-purple-100 hover:border-purple-600 hover:text-white shadow-2xs hover:shadow-lg hover:-translate-y-1'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors shadow-xs ${
+                  activeTab === 'payroll'
+                    ? 'bg-white text-purple-700'
+                    : 'bg-purple-600 text-white group-hover:bg-white group-hover:text-purple-700'
+                }`}>
+                  <Wallet className="w-5 h-5" />
+                </div>
+                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider transition-colors ${
+                  activeTab === 'payroll'
+                    ? 'bg-purple-800 text-purple-100'
+                    : 'bg-purple-100 group-hover:bg-purple-500 text-purple-800 group-hover:text-white'
+                }`}>
+                  Bursary
+                </span>
+              </div>
+              <div>
+                <h4 className={`font-extrabold text-xs transition-colors flex items-center gap-1 ${
+                  activeTab === 'payroll' ? 'text-white' : 'text-slate-900 group-hover:text-white'
+                }`}>
+                  Staff Payroll System
+                </h4>
+                <p className={`text-[11px] mt-0.5 line-clamp-2 transition-colors ${
+                  activeTab === 'payroll' ? 'text-purple-100' : 'text-slate-500 group-hover:text-purple-100'
+                }`}>
+                  Monthly batch payroll, SSNIT, PAYE tax & HD payslips
+                </p>
+              </div>
+            </button>
+
+            {/* Menu 7: Institutional Expenditure */}
+            <button
+              onClick={() => setActiveTab('expenses')}
+              className={`group p-4 rounded-2xl text-left transition-all duration-200 border cursor-pointer flex flex-col justify-between space-y-3 ${
+                activeTab === 'expenses'
+                  ? 'bg-rose-600 text-white border-rose-600 shadow-md scale-[1.02]'
+                  : 'bg-gradient-to-br from-rose-50/80 to-slate-50 hover:from-rose-600 hover:to-rose-700 border-rose-100 hover:border-rose-600 hover:text-white shadow-2xs hover:shadow-lg hover:-translate-y-1'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors shadow-xs ${
+                  activeTab === 'expenses'
+                    ? 'bg-white text-rose-700'
+                    : 'bg-rose-600 text-white group-hover:bg-white group-hover:text-rose-700'
+                }`}>
+                  <Receipt className="w-5 h-5" />
+                </div>
+                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider transition-colors ${
+                  activeTab === 'expenses'
+                    ? 'bg-rose-800 text-rose-100'
+                    : 'bg-rose-100 group-hover:bg-rose-500 text-rose-800 group-hover:text-white'
+                }`}>
+                  Expense
+                </span>
+              </div>
+              <div>
+                <h4 className={`font-extrabold text-xs transition-colors flex items-center gap-1 ${
+                  activeTab === 'expenses' ? 'text-white' : 'text-slate-900 group-hover:text-white'
+                }`}>
+                  Expenditure & Vouchers
+                </h4>
+                <p className={`text-[11px] mt-0.5 line-clamp-2 transition-colors ${
+                  activeTab === 'expenses' ? 'text-rose-100' : 'text-slate-500 group-hover:text-rose-100'
+                }`}>
+                  Log operational expenses, procurement vouchers & petty cash
+                </p>
+              </div>
+            </button>
+
+            {/* Menu 8: Secretary Records */}
+            <button
+              onClick={() => setActiveTab('secretary-records')}
+              className={`group p-4 rounded-2xl text-left transition-all duration-200 border cursor-pointer flex flex-col justify-between space-y-3 ${
+                activeTab === 'secretary-records'
+                  ? 'bg-amber-600 text-white border-amber-600 shadow-md scale-[1.02]'
+                  : 'bg-gradient-to-br from-amber-50/80 to-slate-50 hover:from-amber-600 hover:to-amber-700 border-amber-100 hover:border-amber-600 hover:text-white shadow-2xs hover:shadow-lg hover:-translate-y-1'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors shadow-xs ${
+                  activeTab === 'secretary-records'
+                    ? 'bg-white text-amber-700'
+                    : 'bg-amber-600 text-white group-hover:bg-white group-hover:text-amber-700'
+                }`}>
+                  <FileText className="w-5 h-5" />
+                </div>
+                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider transition-colors ${
+                  activeTab === 'secretary-records'
+                    ? 'bg-amber-800 text-amber-100'
+                    : 'bg-amber-100 group-hover:bg-amber-500 text-amber-800 group-hover:text-white'
+                }`}>
+                  Secretary Desk
+                </span>
+              </div>
+              <div>
+                <h4 className={`font-extrabold text-xs transition-colors flex items-center gap-1 ${
+                  activeTab === 'secretary-records' ? 'text-white' : 'text-slate-900 group-hover:text-white'
+                }`}>
+                  Secretary Financials
+                </h4>
+                <p className={`text-[11px] mt-0.5 line-clamp-2 transition-colors ${
+                  activeTab === 'secretary-records' ? 'text-amber-100' : 'text-slate-500 group-hover:text-amber-100'
+                }`}>
+                  Secretary front-desk collections, expenses & daily handovers
                 </p>
               </div>
             </button>
@@ -1193,88 +1462,453 @@ export default function AccountantPortal({
         );
       })()}
 
-      {/* 3. COLLECT FEE PAYMENT FORM */}
+      {/* 3. COLLECT FEE PAYMENT FORM (Department & Class Level Based) */}
       {activeTab === 'new-payment' && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 max-w-xl mx-auto space-y-6">
-          <div className="border-b border-slate-100 pb-3">
-            <h3 className="text-lg font-bold text-slate-900">Record Real-Time Fee Payment</h3>
-            <p className="text-xs text-slate-500">Issue an authentic receipt and deduct student fee arrears in real time.</p>
+        <div className="space-y-6">
+          {/* Header Card */}
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full">
+                    Real-Time Terminal
+                  </span>
+                  <span className="text-xs text-slate-400 font-medium">Department & Class Level Hierarchy</span>
+                </div>
+                <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-emerald-600" />
+                  Record Real-Time Fee Payment
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Select or enter the academic department, choose the class level, inspect the student roster or search students by name to record instant fee receipts.
+                </p>
+              </div>
+
+              {/* Quick Status Pill */}
+              <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 px-4 py-2 rounded-2xl">
+                <Users className="w-4 h-4 text-cyan-600" />
+                <div className="text-xs">
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Roster In View</span>
+                  <span className="font-extrabold text-slate-900">{filteredStudentsForPayment.length} Students</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Hierarchical Filters: Department, Class & Student Search */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-5">
+              {/* 1. Department Filter */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-cyan-600" />
+                  1. Department Level
+                </label>
+                <div className="space-y-2">
+                  <select
+                    value={paymentDept}
+                    onChange={(e) => {
+                      setPaymentDept(e.target.value);
+                      setCustomDeptInput('');
+                      setPaymentClass('All');
+                    }}
+                    className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-xs font-bold bg-white text-slate-800 focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                  >
+                    <option value="All">All Departments</option>
+                    {availableDepartments.map(dept => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="text"
+                    placeholder="Or enter custom department..."
+                    value={customDeptInput}
+                    onChange={(e) => {
+                      setCustomDeptInput(e.target.value);
+                      if (e.target.value.trim()) {
+                        setPaymentDept('Custom');
+                      } else {
+                        setPaymentDept('All');
+                      }
+                    }}
+                    className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs bg-slate-50 text-slate-700 focus:bg-white focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* 2. Class Level Filter */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                  <BookOpen className="w-3.5 h-3.5 text-cyan-600" />
+                  2. Class Level
+                </label>
+                <select
+                  value={paymentClass}
+                  onChange={(e) => setPaymentClass(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-xs font-bold bg-white text-slate-800 focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                >
+                  <option value="All">All Classes ({availableClasses.length})</option>
+                  {availableClasses.map(cls => (
+                    <option key={cls} value={cls}>{cls}</option>
+                  ))}
+                </select>
+
+                {/* Quick Class Pills */}
+                <div className="flex flex-wrap gap-1 pt-1 max-h-16 overflow-y-auto">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentClass('All')}
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold cursor-pointer transition-colors ${
+                      paymentClass === 'All' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    All
+                  </button>
+                  {availableClasses.slice(0, 5).map(cls => (
+                    <button
+                      key={cls}
+                      type="button"
+                      onClick={() => setPaymentClass(cls)}
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold cursor-pointer transition-colors ${
+                        paymentClass === cls ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {cls}
+                    </button>
+                  ))}
+                  {availableClasses.length > 5 && (
+                    <span className="text-[10px] text-slate-400 self-center">+{availableClasses.length - 5} more</span>
+                  )}
+                </div>
+              </div>
+
+              {/* 3. Search Student by Name */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                  <Search className="w-3.5 h-3.5 text-cyan-600" />
+                  3. Search Student
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search by student name or ID..."
+                    value={studentRosterSearch}
+                    onChange={(e) => setStudentRosterSearch(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2.5 border border-slate-300 rounded-xl text-xs bg-white focus:ring-2 focus:ring-emerald-500 shadow-2xs font-medium"
+                  />
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  {studentRosterSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setStudentRosterSearch('')}
+                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                  <span>Filtered: <strong>{filteredStudentsForPayment.length}</strong> of {students.length}</span>
+                  {(paymentDept !== 'All' || paymentClass !== 'All' || studentRosterSearch) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaymentDept('All');
+                        setCustomDeptInput('');
+                        setPaymentClass('All');
+                        setStudentRosterSearch('');
+                      }}
+                      className="text-emerald-700 hover:underline font-bold"
+                    >
+                      Reset Filters
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
-          <form onSubmit={handleRecordPayment} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Select Student *</label>
-              <select
-                value={selectedStudentId}
-                onChange={(e) => handleStudentSelect(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold bg-white focus:ring-2 focus:ring-cyan-500"
-              >
-                {students.map(st => (
-                  <option key={st.id} value={st.id}>
-                    {st.fullName} ({st.admissionNo} • {st.className})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {selectedBill && (
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center text-xs">
-                <div>
-                  <span className="text-slate-500 block">Current Bill Status</span>
-                  <span className="font-bold text-slate-800">{selectedBill.className} • 2025-2026 Third Term</span>
+          {/* Main 2-Column Grid: Left = Class Roster / Student List, Right = Payment Entry Form */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Left Column: Student Roster List (7 Cols) */}
+            <div className="lg:col-span-6 bg-white rounded-3xl shadow-sm border border-slate-200 p-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-emerald-600" />
+                  <h4 className="text-sm font-black text-slate-900">
+                    Class Roster Directory
+                  </h4>
                 </div>
-                <div className="text-right">
-                  <span className="text-slate-500 block">Remaining Balance</span>
-                  <span className="font-mono font-black text-rose-600 text-sm">{selectedBill.balance.toFixed(2)} CFA</span>
+                <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                  Click student to record payment
+                </span>
+              </div>
+
+              {filteredStudentsForPayment.length === 0 ? (
+                <div className="text-center py-12 px-4 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
+                  <Users className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                  <p className="text-sm font-bold text-slate-700">No students match current filters</p>
+                  <p className="text-xs text-slate-500 mt-1">Try selecting a different department, class or clearing the search keyword.</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentDept('All');
+                      setCustomDeptInput('');
+                      setPaymentClass('All');
+                      setStudentRosterSearch('');
+                    }}
+                    className="mt-3 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700"
+                  >
+                    Clear All Filters
+                  </button>
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="space-y-2 max-h-[560px] overflow-y-auto pr-1">
+                  {filteredStudentsForPayment.map(st => {
+                    const studentBill = bills.find(b => b.studentId === st.id || b.admissionNo === st.admissionNo);
+                    const isSelected = st.id === selectedStudent?.id;
+                    const balance = studentBill ? studentBill.balance : 715;
+                    const hasArrears = balance > 0;
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Amount Paid (CFA) *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={amountPaid}
-                  onChange={(e) => setAmountPaid(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-black text-emerald-700 bg-white focus:ring-2 focus:ring-cyan-500 text-base"
-                />
-              </div>
+                    return (
+                      <div
+                        key={st.id}
+                        onClick={() => handleStudentSelect(st.id)}
+                        className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                          isSelected
+                            ? 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
+                            : 'bg-white hover:bg-slate-50 border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
+                            isSelected
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-slate-100 text-slate-700'
+                          }`}>
+                            {st.fullName.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h5 className="text-xs font-extrabold text-slate-900 truncate">
+                                {st.fullName}
+                              </h5>
+                              {isSelected && (
+                                <span className="text-[9px] bg-emerald-600 text-white font-black px-1.5 py-0.2 rounded-sm uppercase">
+                                  Selected
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
+                              <span className="font-mono text-slate-600 font-bold">{st.admissionNo}</span>
+                              <span>•</span>
+                              <span className="bg-slate-100 text-slate-700 font-semibold px-1.5 py-0.2 rounded">
+                                {st.className}
+                              </span>
+                              {st.department && (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-slate-400 truncate max-w-[100px]">{st.department}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Payment Method *</label>
-                <select
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value as any)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold bg-white focus:ring-2 focus:ring-cyan-500"
-                >
-                  <option value="Mobile money">Mobile money</option>
-                  <option value="Cash">Cash</option>
-                  <option value="Bank Transfer">Bank Transfer</option>
-                </select>
-              </div>
+                        {/* Balance Badge */}
+                        <div className="text-right shrink-0">
+                          {hasArrears ? (
+                            <span className="text-[11px] font-black text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg block">
+                              {balance.toFixed(2)} CFA
+                              <span className="block text-[9px] font-medium text-rose-500 uppercase">Balance Due</span>
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg block">
+                              ✓ Fully Paid
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <PaidAsSelector
-                value={paidAs}
-                onChange={setPaidAs}
-                label="Paid As (Description / Purpose of Payment)"
-                required
-              />
-            </div>
+            {/* Right Column: Active Payment Terminal & Form (6 Cols) */}
+            <div className="lg:col-span-6 space-y-4">
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 space-y-5">
+                <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+                  <div>
+                    <h4 className="text-base font-black text-slate-900">Payment Details</h4>
+                    <p className="text-xs text-slate-500">Selected student billing information</p>
+                  </div>
+                  {selectedStudent && (
+                    <span className="bg-cyan-100 text-cyan-800 text-[10px] font-black px-2.5 py-1 rounded-full uppercase">
+                      {selectedStudent.className}
+                    </span>
+                  )}
+                </div>
 
-            <div className="pt-3">
-              <button
-                type="submit"
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
-              >
-                <Check className="w-4 h-4" /> Record Payment & Issue Official Receipt
-              </button>
+                {selectedStudent ? (
+                  <form onSubmit={handleRecordPayment} className="space-y-4">
+                    {/* Selected Student Banner */}
+                    <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-4 rounded-2xl shadow-sm space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] uppercase tracking-wider text-emerald-400 font-bold">Selected Student</span>
+                          <h4 className="text-base font-black text-white">{selectedStudent.fullName}</h4>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] uppercase text-slate-400 font-medium">Admission ID</span>
+                          <p className="text-xs font-mono font-bold text-slate-200">{selectedStudent.admissionNo}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-700/60 text-xs">
+                        <div>
+                          <span className="text-slate-400 block text-[10px]">Class Level</span>
+                          <span className="font-bold text-white">{selectedStudent.className}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[10px]">Department</span>
+                          <span className="font-bold text-white truncate block">{selectedStudent.department || 'General'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[10px]">Guardian Phone</span>
+                          <span className="font-bold text-white">{selectedStudent.parentPhone || 'N/A'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Financial Bill Status Card */}
+                    {selectedBill && (
+                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                        <div className="flex justify-between items-center text-xs">
+                          <div>
+                            <span className="text-slate-500 block text-[10px] uppercase font-bold">Billing Term</span>
+                            <span className="font-bold text-slate-800">{selectedBill.className} • 2025-2026 Third Term</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-slate-500 block text-[10px] uppercase font-bold">Remaining Arrears</span>
+                            <span className="font-mono font-black text-rose-600 text-base">{selectedBill.balance.toFixed(2)} CFA</span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200 text-center text-xs">
+                          <div className="bg-white p-2 rounded-xl border border-slate-200">
+                            <span className="text-[10px] text-slate-400 uppercase block font-bold">Payable</span>
+                            <span className="font-bold text-slate-800">{selectedBill.payable.toFixed(2)} CFA</span>
+                          </div>
+                          <div className="bg-white p-2 rounded-xl border border-slate-200">
+                            <span className="text-[10px] text-slate-400 uppercase block font-bold">Paid to Date</span>
+                            <span className="font-bold text-emerald-600">{selectedBill.paid.toFixed(2)} CFA</span>
+                          </div>
+                          <div className="bg-white p-2 rounded-xl border border-slate-200">
+                            <span className="text-[10px] text-slate-400 uppercase block font-bold">Net Balance</span>
+                            <span className="font-black text-rose-600">{selectedBill.balance.toFixed(2)} CFA</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Amount Paid input & Presets */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-bold text-slate-700 uppercase">
+                          Amount Paid (CFA) *
+                        </label>
+                        {selectedBill && selectedBill.balance > 0 && (
+                          <div className="flex gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setAmountPaid(selectedBill.balance.toString())}
+                              className="text-[10px] font-black bg-rose-100 hover:bg-rose-200 text-rose-800 px-2 py-0.5 rounded cursor-pointer transition-colors"
+                            >
+                              Pay Full Balance ({selectedBill.balance.toFixed(0)} CFA)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setAmountPaid((selectedBill.balance / 2).toFixed(2))}
+                              className="text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded cursor-pointer transition-colors"
+                            >
+                              50%
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <input
+                        type="number"
+                        step="0.01"
+                        required
+                        value={amountPaid}
+                        onChange={(e) => setAmountPaid(e.target.value)}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-xl text-base font-black text-emerald-700 bg-white focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                        placeholder="0.00"
+                      />
+                    </div>
+
+                    {/* Payment Method */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                        Payment Method *
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(['Mobile money', 'Cash', 'Bank Transfer'] as const).map(method => (
+                          <button
+                            key={method}
+                            type="button"
+                            onClick={() => setPaymentMethod(method)}
+                            className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                              paymentMethod === method
+                                ? 'bg-cyan-600 text-white border-cyan-600 shadow-xs'
+                                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            {method}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Paid As / Purpose */}
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                      <PaidAsSelector
+                        value={paidAs}
+                        onChange={setPaidAs}
+                        label="Paid As (Fee Category / Tariff Purpose)"
+                        required
+                      />
+                    </div>
+
+                    {/* Collector Info */}
+                    <div className="text-[11px] text-slate-500 flex items-center justify-between bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200">
+                      <span>Collector Attribution:</span>
+                      <span className="font-bold text-slate-800">
+                        {currentUser?.name 
+                          ? `${currentUser.name} (${currentUser.role === 'sub_accountant' ? 'Sub-Accountant' : 'Accountant'})`
+                          : 'Frank Mensah (Accountant)'}
+                      </span>
+                    </div>
+
+                    {/* Submit Button */}
+                    <div className="pt-2">
+                      <button
+                        type="submit"
+                        className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl shadow-lg shadow-emerald-900/20 text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
+                      >
+                        <Check className="w-4 h-4" /> Record Payment & Issue Official Receipt
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="text-center py-12 text-slate-400">
+                    <User className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-xs font-bold">Please select a student from the class roster list to proceed.</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </form>
+          </div>
         </div>
       )}
 
@@ -1291,6 +1925,106 @@ export default function AccountantPortal({
               // Trigger update if parent supports it
             }
           }}
+        />
+      )}
+
+      {/* 5. INSTITUTIONAL EXPENSES & VOUCHERS */}
+      {activeTab === 'expenses' && (
+        <ExpenseManager
+          currentUser={{
+            id: 'acc-1',
+            name: 'Denis Mawutor',
+            role: 'accountant'
+          }}
+          canApprove={true}
+          canDelete={true}
+        />
+      )}
+
+      {/* 6. SECRETARY DESK RECORDS & HANDOVER RECONCILIATION */}
+      {activeTab === 'secretary-records' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-black tracking-wider uppercase text-blue-600">
+                  Front Desk & Bursary Handover
+                </span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900">
+                Secretary Desk Collections & Cash Reconciliation
+              </h2>
+              <p className="text-xs text-slate-500 mt-1 max-w-xl">
+                Review daily tuition collections, point-of-sale receipts, petty cash disbursements, and certify daily physical cash handovers from the front desk.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="font-black text-xs uppercase tracking-wider text-slate-700">
+                Daily Secretarial Handover Summaries ({getStoredSecretarySummaries().length})
+              </h3>
+              <span className="text-[11px] text-slate-400">Front Desk Reconciliation Ledger</span>
+            </div>
+
+            <div className="divide-y divide-slate-100 text-xs">
+              {getStoredSecretarySummaries().map((summary) => (
+                <div key={summary.id} className="p-4 sm:p-5 hover:bg-slate-50/70 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-black text-slate-900">{summary.date}</span>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                        summary.isReconciled 
+                          ? 'bg-emerald-100 text-emerald-800' 
+                          : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {summary.isReconciled ? 'Reconciled & Received' : 'Pending Handover Confirmation'}
+                      </span>
+                      <span className="text-slate-400">•</span>
+                      <span className="text-slate-600 font-medium">Logged by: {summary.secretaryName}</span>
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      Collections: <strong className="text-emerald-700 font-mono">GH₵ {summary.totalFeesCollected.toFixed(2)}</strong> ({summary.receiptsCount} receipts) • Expenses: <strong className="text-rose-600 font-mono">GH₵ {summary.totalExpensesIncurred.toFixed(2)}</strong> • Net Cash to Bursary: <strong className="text-slate-900 font-mono">GH₵ {summary.netCashOnHand.toFixed(2)}</strong>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {!summary.isReconciled ? (
+                      <button
+                        onClick={() => {
+                          const currentSummaries = getStoredSecretarySummaries();
+                          const updated = currentSummaries.map(s => s.id === summary.id ? { ...s, isReconciled: true, reconciledBy: 'Denis Mawutor (Accountant)' } : s);
+                          saveStoredSecretarySummaries(updated);
+                          alert(`Handover for ${summary.date} marked as Reconciled & Received.`);
+                        }}
+                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        <span>Accept & Reconcile</span>
+                      </button>
+                    ) : (
+                      <span className="text-[11px] text-emerald-700 font-bold flex items-center gap-1 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Reconciled by {summary.reconciledBy || 'Bursary'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7. STAFF PAYROLL & REMUNERATION TAB */}
+      {activeTab === 'payroll' && (
+        <PayrollManager
+          currentUserRole="Accountant"
+          onAddNotification={onAddNotification}
         />
       )}
         </motion.div>

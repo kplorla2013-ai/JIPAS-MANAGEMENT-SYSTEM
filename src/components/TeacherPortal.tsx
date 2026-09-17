@@ -975,12 +975,39 @@ export default function TeacherPortal({
       )}
 
       {/* ========================================================================= */}
-      {/* 1. LEFT SIDEBAR (Dark Navy/Slate #202938 Theme, Minimized Length) */}
+      {/* 1. LEFT SIDEBAR (Dark Navy/Slate #202938 Theme, Responsive Collapsible) */}
       {/* ========================================================================= */}
+      {/* Floating Toggle Icon (Docked to left edge on mobile when sidebar is closed) */}
+      {!isSidebarOpen && (
+        <button
+          onClick={() => setIsSidebarOpen(true)}
+          title="Open Teacher Navigation Menu"
+          id="jipas-teacher-floating-toggle-btn"
+          className="fixed left-0 top-20 z-50 md:hidden bg-[#1a222f]/95 hover:bg-blue-600 text-white pl-2 pr-3 py-2 rounded-r-xl shadow-2xl border-y border-r border-slate-700 backdrop-blur-xs transition-all flex items-center gap-1.5 cursor-pointer group"
+        >
+          <Menu className="w-4 h-4 text-blue-400 group-hover:text-white" />
+          <span className="text-[10px] font-bold">Menu</span>
+        </button>
+      )}
+
+      {/* Mobile Backdrop Overlay */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-40 md:hidden transition-opacity"
+          onClick={() => setIsSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Collapsible Sidebar: Fixed drawer on mobile, sticky collapsible icon rail on desktop */}
       <aside 
+        id="jipas-teacher-sidebar"
         className={`${
-          isSidebarOpen ? 'w-full md:w-64' : 'hidden md:block md:w-20'
+          isSidebarOpen 
+            ? 'fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] md:static md:w-64' 
+            : 'hidden md:flex md:w-20'
         } bg-[#202938] text-white flex-shrink-0 transition-all duration-300 flex flex-col justify-between shadow-xl z-30 md:sticky md:top-4 md:max-h-[calc(100vh-2rem)] md:rounded-2xl md:my-4 md:ml-4 overflow-hidden border border-slate-700/60`}
+        aria-label="Teacher Portal Sidebar"
       >
         <div className="overflow-y-auto flex-1 custom-scrollbar">
           {/* Brand & Logo Header with Minimize Toggle */}
@@ -989,20 +1016,22 @@ export default function TeacherPortal({
               <JIPASLogo size="sm" />
               {isSidebarOpen && (
                 <span className="font-bold text-sm tracking-wide text-slate-100 truncate">
-                  School Management
+                  Teacher Portal
                 </span>
               )}
             </div>
-            {isSidebarOpen && (
-              <button
-                onClick={() => setIsSidebarOpen(false)}
-                title="Minimize Navigation Sidebar"
-                id="jipas-teacher-sidebar-minimize-btn"
-                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-lg transition-colors cursor-pointer shrink-0"
-              >
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              title={isSidebarOpen ? "Collapse Navigation Sidebar" : "Expand Navigation Sidebar"}
+              id="jipas-teacher-sidebar-minimize-btn"
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-lg transition-colors cursor-pointer shrink-0 border border-slate-700/50"
+            >
+              {isSidebarOpen ? (
                 <PanelLeftClose className="w-4 h-4" />
-              </button>
-            )}
+              ) : (
+                <PanelLeftOpen className="w-4 h-4 text-blue-400" />
+              )}
+            </button>
           </div>
 
           {/* Teacher Profile Identifier Banner */}
@@ -1010,7 +1039,7 @@ export default function TeacherPortal({
             <div className="w-10 h-10 rounded-full bg-blue-600/90 text-white flex items-center justify-center font-bold shrink-0 shadow-sm border border-blue-400/30">
               <User className="w-5 h-5" />
             </div>
-            {isSidebarOpen && (
+            {isSidebarOpen ? (
               <div className="overflow-hidden">
                 <div className="font-bold text-sm text-[#22c55e] truncate leading-tight">
                   {teacher.name}
@@ -1019,7 +1048,7 @@ export default function TeacherPortal({
                   (Teacher)
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* Navigation Menu */}
@@ -1027,6 +1056,7 @@ export default function TeacherPortal({
             {/* 1. Dashboard Menu Item */}
             <button
               onClick={() => handleNavigate('dashboard')}
+              title="Dashboard Overview"
               className={`w-full flex flex-col items-center justify-center p-3 rounded-2xl transition-all cursor-pointer text-center ${
                 activeView === 'dashboard' 
                   ? 'bg-blue-600 text-white font-bold shadow-md border border-blue-400' 
@@ -1051,6 +1081,7 @@ export default function TeacherPortal({
                 {/* 2a. Enter Results Sub-menu */}
                 <button
                   onClick={() => handleNavigate('enter_results')}
+                  title="Enter Results & Terminal Scores"
                   className={`flex flex-col items-center justify-center p-2.5 rounded-xl transition-all cursor-pointer text-center min-h-[66px] ${
                     activeView === 'enter_results' 
                       ? 'bg-blue-600 text-white font-bold shadow-md border border-blue-400' 
@@ -1066,6 +1097,7 @@ export default function TeacherPortal({
                 {/* 2b. Attendance & Comment Sub-menu */}
                 <button
                   onClick={() => handleNavigate('attendance_comment')}
+                  title="Attendance Log & Student Character Remarks"
                   className={`flex flex-col items-center justify-center p-2.5 rounded-xl transition-all cursor-pointer text-center min-h-[66px] ${
                     activeView === 'attendance_comment' 
                       ? 'bg-blue-600 text-white font-bold shadow-md border border-blue-400' 
@@ -1081,6 +1113,7 @@ export default function TeacherPortal({
                 {/* 2c. Report Card Review Sub-menu */}
                 <button
                   onClick={() => handleNavigate('review_reports')}
+                  title="Report Card Broadsheets & Terminal Printing"
                   className={`flex flex-col items-center justify-center p-2.5 rounded-xl transition-all cursor-pointer text-center min-h-[66px] ${
                     isSidebarOpen ? 'col-span-2' : ''
                   } ${
@@ -1107,6 +1140,7 @@ export default function TeacherPortal({
                 {/* 3a. Enroll New Student */}
                 <button
                   onClick={() => handleNavigate('enroll_student')}
+                  title="Enroll New Student"
                   className={`flex flex-col items-center justify-center p-2.5 rounded-xl transition-all cursor-pointer text-center min-h-[66px] ${
                     activeView === 'enroll_student' 
                       ? 'bg-emerald-600 text-white font-bold shadow-md border border-emerald-400' 
@@ -1122,6 +1156,7 @@ export default function TeacherPortal({
                 {/* 4. My Profile */}
                 <button
                   onClick={() => handleNavigate('profile')}
+                  title="My Teacher Profile"
                   className={`flex flex-col items-center justify-center p-2.5 rounded-xl transition-all cursor-pointer text-center min-h-[66px] ${
                     activeView === 'profile' 
                       ? 'bg-blue-600 text-white font-bold shadow-md border border-blue-400' 
@@ -1137,6 +1172,7 @@ export default function TeacherPortal({
                 {/* 5. Change Password */}
                 <button
                   onClick={() => handleNavigate('change_password')}
+                  title="Change Password & Security Passcode"
                   className={`flex flex-col items-center justify-center p-2.5 rounded-xl transition-all cursor-pointer text-center min-h-[66px] ${
                     activeView === 'change_password' 
                       ? 'bg-amber-600 text-white font-bold shadow-md border border-amber-400' 
@@ -1152,6 +1188,7 @@ export default function TeacherPortal({
                 {/* 6. Backup & Recovery */}
                 <button
                   onClick={() => handleNavigate('backup_recovery')}
+                  title="Data Backup & CSV Records"
                   className={`flex flex-col items-center justify-center p-2.5 rounded-xl transition-all cursor-pointer text-center min-h-[66px] ${
                     activeView === 'backup_recovery' 
                       ? 'bg-cyan-600 text-white font-bold shadow-md border border-cyan-400' 
@@ -1172,9 +1209,12 @@ export default function TeacherPortal({
         <div className="p-3 border-t border-slate-700/60 shrink-0">
           <button
             onClick={onLogout}
-            className="w-full bg-[#dc3545] hover:bg-red-700 text-white font-bold text-xs py-2.5 px-3 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-sm cursor-pointer"
+            title="Log Out of Teacher Portal"
+            className={`w-full bg-[#dc3545] hover:bg-red-700 text-white font-bold text-xs py-2.5 ${
+              isSidebarOpen ? 'px-3' : 'px-1.5'
+            } rounded-lg flex items-center justify-center gap-2 transition-colors shadow-sm cursor-pointer`}
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-4 h-4 shrink-0" />
             {isSidebarOpen && <span>Logout</span>}
           </button>
         </div>
@@ -1189,10 +1229,17 @@ export default function TeacherPortal({
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 cursor-pointer text-lg leading-none"
-              title="Toggle Sidebar"
+              className="px-2.5 py-1.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-blue-600 border border-slate-200 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+              title={isSidebarOpen ? "Collapse Navigation Sidebar" : "Expand Navigation Sidebar"}
             >
-              <Menu className="w-5 h-5" />
+              {isSidebarOpen ? (
+                <PanelLeftClose className="w-4 h-4 text-slate-500" />
+              ) : (
+                <PanelLeftOpen className="w-4 h-4 text-blue-600" />
+              )}
+              <span className="hidden sm:inline">
+                {isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
+              </span>
             </button>
           </div>
 
@@ -1499,8 +1546,8 @@ export default function TeacherPortal({
                       onClick={() => { setQrModalInitialMode('scan_office_qr'); setIsQrModalOpen(true); }}
                       className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl text-xs font-black shadow-lg shadow-emerald-900/30 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95"
                     >
-                      <Camera className="w-4 h-4 text-emerald-100 animate-pulse" />
-                      Open Live Camera Scanner
+                      <Camera className="w-4 h-4 text-emerald-100 animate-pulse shrink-0" />
+                      <span>SCAN  (to Sign-In/Out to register)</span>
                     </button>
 
                     <button

@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { 
   FileText, DollarSign, Plus, Settings, AlertTriangle, 
   Pin, PinOff, ChevronRight, Menu, X, CheckCircle2, 
-  TrendingUp, Sparkles, User, ShieldCheck, Wallet
+  TrendingUp, Sparkles, User, ShieldCheck, Wallet, Receipt, Layers
 } from 'lucide-react';
 import JIPASLogo from '../common/JIPASLogo';
 
-export type AccountantTabType = 'collections' | 'bills' | 'new-payment' | 'fee-settings' | 'overdue-alerts';
+export type AccountantTabType = 'collections' | 'bills' | 'new-payment' | 'fee-settings' | 'overdue-alerts' | 'payroll' | 'expenses' | 'secretary-records';
 
 interface AccountantSidebarProps {
   activeTab: AccountantTabType;
@@ -103,6 +103,30 @@ export default function AccountantSidebar({
       icon: AlertTriangle,
       badge: overdueCount > 0 ? overdueCount : undefined,
       badgeColor: 'bg-rose-500 text-white animate-pulse'
+    },
+    {
+      id: 'expenses',
+      label: 'Institutional Expenses',
+      sublabel: 'Vouchers & Operating Costs',
+      icon: Receipt,
+      badge: 'Outlays',
+      badgeColor: 'bg-rose-100 text-rose-800'
+    },
+    {
+      id: 'secretary-records',
+      label: 'Secretary Desk & Cash',
+      sublabel: 'Front Desk Daily Handover',
+      icon: Layers,
+      badge: 'Desk',
+      badgeColor: 'bg-blue-100 text-blue-800'
+    },
+    {
+      id: 'payroll',
+      label: 'Staff Payroll System',
+      sublabel: 'Salaries, SSNIT, PAYE & Slips',
+      icon: Wallet,
+      badge: 'Bursary',
+      badgeColor: 'bg-purple-100 text-purple-800'
     }
   ];
 

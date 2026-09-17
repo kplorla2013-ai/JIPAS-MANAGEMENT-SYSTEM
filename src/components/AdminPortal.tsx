@@ -17,9 +17,14 @@ import CommunicationLogsManager from './admin/CommunicationLogsManager';
 import AdminDashboardCharts from './admin/AdminDashboardCharts';
 import StudentTranscriptManager from './admin/StudentTranscriptManager';
 import BackupRecoveryManager from './admin/BackupRecoveryManager';
+import SubAccountantRoleManager from './admin/SubAccountantRoleManager';
+import FinancialAuditManager from './admin/FinancialAuditManager';
+import UserPortalReviewManager from './admin/UserPortalReviewManager';
+import ExpenseManager from './common/ExpenseManager';
 import QuickActionSpeedDial from './common/QuickActionSpeedDial';
 import JIPASLogo from './common/JIPASLogo';
 import GlobalSearchHeader from './common/GlobalSearchHeader';
+import PayrollManager from './common/PayrollManager';
 import { useI18n } from '../i18n/I18nContext';
 
 import { 
@@ -32,8 +37,9 @@ import {
   FileText, Shield, Plus, Search, CheckCircle, AlertCircle, ArrowUpRight, DollarSign, BookOpen,
   Settings, UserCog, GraduationCap, ClipboardCheck, BarChart3, MessageSquare, KeyRound, Layers, Building2, School, Bookmark,
   Send, Eye, History, RefreshCw, CheckCircle2, Mail, Clock, AlertTriangle, LogOut, Printer, Wallet, TrendingUp, ChevronRight, ChevronDown,
-  PanelLeftClose, PanelLeftOpen, MessageCircle, Database, Trash2, X, Sparkles, Palette, Download, Menu
+  PanelLeftClose, PanelLeftOpen, MessageCircle, Database, Trash2, X, Sparkles, Palette, Download, Menu, Presentation, ShieldCheck
 } from 'lucide-react';
+import { AppPresentationOverviewModal } from './common/AppPresentationOverviewModal';
 
 interface AdminPortalProps {
   currentUser?: any;
@@ -91,6 +97,8 @@ const VALID_ADMIN_MODULES = new Set([
   'system_settings', 'system_theme_palette', 'theme_palette', 'color_palette', 'system_account_requests', 'account_requests', 'system_backup_restore', 'backup_recovery', 'backup_restore',
   'system_users_roles', 'users_roles', 'system_student_portal_ctrl', 'student_portal_control',
   'system_manage_logins', 'manage_portal_logins',
+  'sub_accountant_roles', 'accountant_roles', 'sub_accountant_privileges',
+  'users_portal_review', 'portal_review', 'users_review',
   // Teacher
   'teacher_profile', 'teachers', 'teacher_id_cards', 'teacher_assign',
   'teacher_attendance', 'teacher_attendance_report', 'teacher_attendance_stats',
@@ -102,10 +110,15 @@ const VALID_ADMIN_MODULES = new Set([
   // Examination
   'exam_grading_system', 'grading_system', 'exam_score_conversion', 'score_conversion',
   'exam_enter_results', 'enter_results', 'exam_report_sheets', 'report_sheets',
-  // Fee
+  // Fee & Financial
   'fee_options', 'fees', 'fee_bill_students', 'bills', 'fee_generate_sheets',
   'fee_collection', 'payments', 'fee_payment_history', 'fee_payment_stats',
   'fee_income_expenses', 'income_expenses', 'fee_overdue_alerts', 'fee_audit_activity', 'audit_activity', 'payment_settings',
+  'financial_audit', 'financial_records_audit', 'audit_financial',
+  'institutional_expenses', 'school_expenses', 'expenses',
+  'secretary_handover', 'secretary_records',
+  // Payroll & Remuneration
+  'payroll', 'payroll_dashboard', 'payroll_runs', 'payroll_structures', 'payroll_payslips', 'payroll_loans', 'payroll_settings',
   // Notifications & SMS & Activity
   'notif_send', 'send_notification', 'whatsapp_broadcast', 'whatsapp_groups',
   'whatsapp_history', 'notif_history', 'notification_history', 'sms_compose',
@@ -115,13 +128,14 @@ const VALID_ADMIN_MODULES = new Set([
 
 const getCategoryForModule = (mod: string): string => {
   if (mod.startsWith('setup_') || mod === 'academic_setup') return 'setup';
-  if (mod.startsWith('system_') || mod === 'backup_recovery' || mod === 'backup_restore' || mod === 'users_roles' || mod === 'student_portal_control' || mod === 'manage_portal_logins' || mod === 'account_requests') return 'system';
+  if (mod.startsWith('system_') || mod === 'backup_recovery' || mod === 'backup_restore' || mod === 'users_roles' || mod === 'student_portal_control' || mod === 'manage_portal_logins' || mod === 'account_requests' || mod === 'sub_accountant_roles' || mod === 'accountant_roles' || mod === 'users_portal_review' || mod === 'portal_review') return 'system';
   if (mod.startsWith('teacher_') || mod === 'teachers') return 'teacher';
   if (mod === 'student_transcript' || mod === 'exam_transcripts' || mod === 'transcripts') return 'student';
   if (mod === 'admin_terminal_reports' || mod === 'terminal_reports' || mod === 'class_broadcasts') return 'exam';
   if (mod.startsWith('student_') || mod === 'students' || mod === 'enroll_student' || mod === 'enrolled_students' || mod === 'promote_students' || mod === 'promotion_history') return 'student';
   if (mod.startsWith('exam_') || mod === 'grading_system' || mod === 'score_conversion' || mod === 'enter_results' || mod === 'report_sheets') return 'exam';
-  if (mod.startsWith('fee_') || mod === 'fees' || mod === 'bills' || mod === 'payments' || mod === 'income_expenses' || mod === 'audit_activity') return 'fee';
+  if (mod.startsWith('fee_') || mod === 'fees' || mod === 'bills' || mod === 'payments' || mod === 'income_expenses' || mod === 'audit_activity' || mod === 'financial_audit' || mod === 'financial_records_audit' || mod === 'institutional_expenses' || mod === 'expenses' || mod === 'secretary_handover') return 'fee';
+  if (mod.startsWith('payroll_') || mod === 'payroll') return 'payroll';
   if (mod.startsWith('notif_') || mod.startsWith('sms_') || mod.startsWith('whatsapp_') || mod === 'send_notification' || mod === 'notification_history' || mod === 'compose_sms' || mod === 'sms_history') return 'notif';
   if (mod.startsWith('logs_') || mod === 'student_login_history' || mod === 'user_login_history') return 'logs';
   return 'dashboard';
@@ -152,6 +166,8 @@ const ADMIN_NAV_GROUPS = [
       { id: 'system_theme_palette', label: 'Theme & Color Palette', icon: Palette },
       { id: 'system_account_requests', label: 'Account Requests', icon: UserCheck },
       { id: 'system_users_roles', label: 'Users & Roles', icon: UserCog },
+      { id: 'sub_accountant_roles', label: 'Sub-Accountant Privileges & Roles', icon: UserCog },
+      { id: 'users_portal_review', label: 'Users Portal Review & Governance', icon: Eye },
       { id: 'system_student_portal_ctrl', label: 'Student Portal Control', icon: GraduationCap },
       { id: 'system_manage_logins', label: 'Manage Portal Logins', icon: KeyRound },
       { id: 'system_backup_restore', label: 'Backup & Recovery', icon: Database },
@@ -203,6 +219,8 @@ const ADMIN_NAV_GROUPS = [
     title: 'Fee Management',
     icon: DollarSign,
     items: [
+      { id: 'financial_audit', label: 'Financial Records Audit', icon: ShieldCheck },
+      { id: 'institutional_expenses', label: 'Institutional Expenses', icon: Wallet },
       { id: 'payment_settings', label: 'Payment Channels & Proofs', icon: CreditCard },
       { id: 'fee_options', label: 'Fee Settings & Tariffs', icon: CreditCard },
       { id: 'fee_bill_students', label: 'Bill Students', icon: FileText },
@@ -213,6 +231,19 @@ const ADMIN_NAV_GROUPS = [
       { id: 'fee_income_expenses', label: 'Income & Expenses', icon: Wallet },
       { id: 'fee_overdue_alerts', label: 'Overdue Fee Alerts', icon: AlertCircle },
       { id: 'fee_audit_activity', label: 'Audit Activity', icon: Shield },
+    ]
+  },
+  {
+    id: 'payroll',
+    title: 'Staff Payroll System',
+    icon: Wallet,
+    items: [
+      { id: 'payroll_dashboard', label: 'Staff Payroll Overview', icon: LayoutDashboard },
+      { id: 'payroll_runs', label: 'Monthly Payroll Batches', icon: Calendar },
+      { id: 'payroll_structures', label: 'Faculty Salary Structures', icon: Users },
+      { id: 'payroll_payslips', label: 'Official Staff Payslips', icon: FileText },
+      { id: 'payroll_loans', label: 'Loans & Salary Advances', icon: CreditCard },
+      { id: 'payroll_settings', label: 'Payroll & SSNIT Settings', icon: Settings },
     ]
   },
   {
@@ -300,6 +331,7 @@ export default function AdminPortal({
     return 'dashboard';
   });
 
+  // Collapsible Sidebar State Management
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 1024) {
       return false;
@@ -312,13 +344,41 @@ export default function AdminPortal({
     }
   });
 
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('jipas_admin_sidebar_collapsed');
+      return saved !== null ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
+
+  // App Presentation & Institutional Overview Modal state
+  const [showPresentationModal, setShowPresentationModal] = useState<boolean>(false);
+  const [presentationInitialSlide, setPresentationInitialSlide] = useState<number>(0);
+
+  const openPresentationDeck = (slideIndex: number = 0) => {
+    setPresentationInitialSlide(slideIndex);
+    setShowPresentationModal(true);
+  };
+
   const toggleSidebar = (openState: boolean) => {
     setIsSidebarOpen(openState);
-    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+    if (typeof window !== 'undefined') {
       try {
         localStorage.setItem('jipas_admin_sidebar_open', JSON.stringify(openState));
       } catch {}
     }
+  };
+
+  const toggleSidebarCollapse = () => {
+    setIsSidebarCollapsed(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('jipas_admin_sidebar_collapsed', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   };
 
   // Accordion category collapse/expand state - collapsed by default for a clean, professional sidebar layout
@@ -629,7 +689,7 @@ export default function AdminPortal({
 
   return (
     <div className="relative flex flex-col lg:flex-row gap-6 w-full">
-      {/* Floating Toggle Icon (Docked to left edge when sidebar is minimized) */}
+      {/* Floating Toggle Icon (Docked to left edge when sidebar is completely hidden) */}
       {!isSidebarOpen && (
         <button
           onClick={() => toggleSidebar(true)}
@@ -651,133 +711,202 @@ export default function AdminPortal({
         />
       )}
 
-      {/* RESPONSIVE NAVIGATION SIDEBAR: Full slide-over drawer on mobile, docked sticky sidebar on desktop */}
+      {/* RESPONSIVE NAVIGATION SIDEBAR: Full slide-over drawer on mobile, collapsible docked sticky sidebar on desktop */}
       {isSidebarOpen && (
         <aside
           id="jipas-admin-sidebar"
-          className="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] h-full bg-[#070D1E]/95 text-slate-300 shadow-2xl flex flex-col border-r border-blue-950/80 lg:static lg:inset-auto lg:z-30 lg:w-64 xl:w-72 lg:shrink-0 lg:sticky lg:top-24 lg:max-h-[calc(100vh-6.5rem)] lg:rounded-2xl lg:border lg:border-blue-900/40 overflow-hidden backdrop-blur-md"
+          className={`fixed inset-y-0 left-0 z-50 ${
+            isSidebarCollapsed ? 'lg:w-20' : 'w-72 max-w-[85vw] lg:w-64 xl:w-72'
+          } h-full bg-[#070D1E]/95 text-slate-300 shadow-2xl flex flex-col border-r border-blue-950/80 lg:static lg:inset-auto lg:z-30 lg:shrink-0 lg:sticky lg:top-24 lg:max-h-[calc(100vh-6.5rem)] lg:rounded-2xl lg:border lg:border-blue-900/40 overflow-hidden backdrop-blur-md transition-all duration-300`}
           aria-label="Admin Navigation Sidebar"
         >
-          {/* Header with static close toggle */}
+          {/* Header with static collapse and close toggles */}
           <div className="p-3.5 border-b border-blue-950/80 flex items-center justify-between shrink-0 bg-[#050A18]/80">
             <div className="flex items-center gap-2.5 overflow-hidden">
               <JIPASLogo size="sm" className="shrink-0" />
-              <div className="whitespace-nowrap overflow-hidden">
-                <h2 className="text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
-                  JIPAS Portal
-                  {currentUser?.role === 'sub_admin' && (
-                    <span className="px-1.5 py-0.5 bg-amber-500 text-slate-950 rounded text-[9px] font-black uppercase">
-                      Sub-Admin
-                    </span>
-                  )}
-                </h2>
-                <p className="text-[10px] text-indigo-400 font-medium">Administrator Console</p>
+              {!isSidebarCollapsed && (
+                <div className="whitespace-nowrap overflow-hidden">
+                  <h2 className="text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
+                    JIPAS Portal
+                    {currentUser?.role === 'sub_admin' && (
+                      <span className="px-1.5 py-0.5 bg-amber-500 text-slate-950 rounded text-[9px] font-black uppercase">
+                        Sub-Admin
+                      </span>
+                    )}
+                  </h2>
+                  <p className="text-[10px] text-indigo-400 font-medium">Administrator Console</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-1 shrink-0">
+              {/* Desktop Expand/Collapse rail button */}
+              <button
+                onClick={toggleSidebarCollapse}
+                title={isSidebarCollapsed ? "Expand Navigation Sidebar" : "Collapse to Compact Rail"}
+                id="jipas-admin-sidebar-collapse-btn"
+                className="hidden lg:flex p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg transition-colors cursor-pointer border border-slate-700/50"
+              >
+                {isSidebarCollapsed ? (
+                  <PanelLeftOpen className="w-4 h-4 text-blue-400" />
+                ) : (
+                  <PanelLeftClose className="w-4 h-4" />
+                )}
+              </button>
+
+              {/* Mobile Close Drawer button */}
+              <button
+                onClick={() => toggleSidebar(false)}
+                title="Close Navigation Menu"
+                id="jipas-static-sidebar-close-btn"
+                className="lg:hidden p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg transition-colors cursor-pointer border border-slate-700/50"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Search/Filter Bar for Fast Access (Only in expanded mode) */}
+          {!isSidebarCollapsed && (
+            <div className="px-3 pt-2.5 pb-1 shrink-0">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-500" />
+                <input
+                  type="text"
+                  value={menuFilter}
+                  onChange={(e) => setMenuFilter(e.target.value)}
+                  placeholder="Filter menu items..."
+                  className="w-full pl-8 pr-2.5 py-1.5 bg-[#0A142A] border border-blue-900/50 rounded-xl text-[11px] text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
               </div>
             </div>
-            <button
-              onClick={() => toggleSidebar(false)}
-              title="Minimize Navigation Sidebar"
-              id="jipas-static-sidebar-close-btn"
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg transition-colors cursor-pointer shrink-0 border border-slate-700/50"
-            >
-              <PanelLeftClose className="w-4 h-4" />
-            </button>
-          </div>
+          )}
 
-          {/* Search/Filter Bar for Fast Access */}
-          <div className="px-3 pt-2.5 pb-1 shrink-0">
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-500" />
-              <input
-                type="text"
-                value={menuFilter}
-                onChange={(e) => setMenuFilter(e.target.value)}
-                placeholder="Filter menu items..."
-                className="w-full pl-8 pr-2.5 py-1.5 bg-[#0A142A] border border-blue-900/50 rounded-xl text-[11px] text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          {/* Scrollable Navigation Groups (Accordion minimizes vertical length) */}
+          {/* Scrollable Navigation Groups */}
           <div className="flex-1 overflow-y-auto px-2.5 py-2 space-y-1.5 text-xs font-medium scrollbar-thin scrollbar-thumb-slate-700">
-            {/* Dashboard Link as Thumbnail Card */}
+            {/* Dashboard Link */}
             <button
               onClick={() => handleNavigate('dashboard')}
-              className={`w-full flex flex-col items-center justify-center p-3 rounded-2xl transition-all cursor-pointer text-center ${
+              title="Dashboard Overview"
+              className={`w-full flex flex-col items-center justify-center p-2.5 rounded-2xl transition-all cursor-pointer text-center ${
                 activeModule === 'dashboard'
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-lg shadow-blue-500/30 border border-blue-400'
                   : 'bg-[#0A142A]/90 hover:bg-slate-800/80 text-slate-300 hover:text-white border border-blue-900/40'
               }`}
             >
-              <LayoutDashboard className={`w-5 h-5 mb-1 ${activeModule === 'dashboard' ? 'text-white' : 'text-blue-400'}`} />
-              <span className="text-xs font-bold">Dashboard Overview</span>
+              <LayoutDashboard className={`w-5 h-5 mb-0.5 ${activeModule === 'dashboard' ? 'text-white' : 'text-blue-400'}`} />
+              {!isSidebarCollapsed && <span className="text-xs font-bold">Dashboard Overview</span>}
             </button>
 
-            {/* Accordion Categories */}
-            {filteredNavGroups.map((group) => {
-              const GroupIcon = group.icon;
-              const hasActiveChild = group.items.some(it => it.id === activeModule);
-              const filteredItems = menuFilter.trim()
-                ? group.items.filter(it => it.label.toLowerCase().includes(menuFilter.toLowerCase()))
-                : group.items;
+            {/* In Collapsed Mode: Compact Icon Group Rail with Direct Navigation */}
+            {isSidebarCollapsed ? (
+              <div className="space-y-1.5 pt-1">
+                {filteredNavGroups.map((group) => {
+                  const GroupIcon = group.icon;
+                  const hasActiveChild = group.items.some(it => it.id === activeModule);
+                  const firstItem = group.items[0];
 
-              if (menuFilter.trim() && filteredItems.length === 0) {
-                return null;
-              }
-
-              const isExpanded = menuFilter.trim() ? true : (expandedCategories[group.id] !== undefined ? expandedCategories[group.id] : hasActiveChild);
-
-              return (
-                <div key={group.id} className="border border-blue-950/70 rounded-xl overflow-hidden bg-[#0A1329]/50">
-                  <button
-                    onClick={() => toggleCategory(group.id)}
-                    className={`w-full flex items-center justify-between px-2.5 py-2 text-left transition-colors cursor-pointer ${
-                      hasActiveChild
-                        ? 'bg-blue-950/70 text-blue-300 font-bold'
-                        : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider">
-                      <GroupIcon className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                      <span className="whitespace-nowrap">{group.title}</span>
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-slate-800/80 text-slate-400">
-                        {group.items.length}
+                  return (
+                    <button
+                      key={group.id}
+                      onClick={() => {
+                        if (firstItem) handleNavigate(firstItem.id);
+                      }}
+                      title={`${group.title}: ${group.items.map(i => i.label).join(', ')}`}
+                      className={`w-full flex flex-col items-center justify-center p-2.5 rounded-xl transition-all cursor-pointer text-center relative ${
+                        hasActiveChild
+                          ? 'bg-blue-600/90 text-white font-bold shadow-md shadow-blue-500/30 border border-blue-400'
+                          : 'bg-[#0A142A]/90 hover:bg-slate-800/80 text-slate-300 hover:text-white border border-blue-900/40'
+                      }`}
+                    >
+                      <GroupIcon className={`w-5 h-5 ${hasActiveChild ? 'text-white' : 'text-blue-400'}`} />
+                      <span className="text-[8px] font-black uppercase mt-1 truncate max-w-full">
+                        {group.id}
                       </span>
-                      {isExpanded ? (
-                        <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                      ) : (
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                      {hasActiveChild && (
+                        <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-blue-900" />
                       )}
-                    </span>
-                  </button>
+                    </button>
+                  );
+                })}
 
-                  {isExpanded && (
-                    <div className="grid grid-cols-2 gap-2 p-2 bg-[#050A18]/80 border-t border-blue-950/60">
-                      {filteredItems.map(item => {
-                        const ItemIcon = item.icon;
-                        const isSelected = activeModule === item.id;
-                        return (
-                          <button
-                            key={item.id}
-                            onClick={() => handleNavigate(item.id)}
-                            className={`flex flex-col items-center justify-center p-2.5 rounded-xl text-center transition-all cursor-pointer min-h-[66px] ${
-                              isSelected
-                                ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-bold shadow-md shadow-blue-500/25 border border-blue-400'
-                                : 'bg-[#0A142A]/90 hover:bg-slate-800/90 text-slate-300 hover:text-white border border-blue-900/30'
-                            }`}
-                          >
-                            <ItemIcon className={`w-5 h-5 mb-1 shrink-0 ${isSelected ? 'text-white' : 'text-blue-400'}`} />
-                            <span className="text-[10px] font-extrabold leading-tight text-center line-clamp-2 w-full">{item.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                {/* Direct App Overview Launcher in Collapsed Sidebar */}
+                <button
+                  onClick={() => openPresentationDeck(0)}
+                  title="App Overview & Presentation Deck"
+                  className="w-full flex flex-col items-center justify-center p-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 transition-all cursor-pointer text-center"
+                >
+                  <Presentation className="w-5 h-5 text-amber-300" />
+                  <span className="text-[8px] font-black uppercase mt-1">Deck</span>
+                </button>
+              </div>
+            ) : (
+              /* Expanded Mode Accordion Categories */
+              filteredNavGroups.map((group) => {
+                const GroupIcon = group.icon;
+                const hasActiveChild = group.items.some(it => it.id === activeModule);
+                const filteredItems = menuFilter.trim()
+                  ? group.items.filter(it => it.label.toLowerCase().includes(menuFilter.toLowerCase()))
+                  : group.items;
+
+                if (menuFilter.trim() && filteredItems.length === 0) {
+                  return null;
+                }
+
+                const isExpanded = menuFilter.trim() ? true : (expandedCategories[group.id] !== undefined ? expandedCategories[group.id] : hasActiveChild);
+
+                return (
+                  <div key={group.id} className="border border-blue-950/70 rounded-xl overflow-hidden bg-[#0A1329]/50">
+                    <button
+                      onClick={() => toggleCategory(group.id)}
+                      className={`w-full flex items-center justify-between px-2.5 py-2 text-left transition-colors cursor-pointer ${
+                        hasActiveChild
+                          ? 'bg-blue-950/70 text-blue-300 font-bold'
+                          : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider">
+                        <GroupIcon className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                        <span className="whitespace-nowrap">{group.title}</span>
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-slate-800/80 text-slate-400">
+                          {group.items.length}
+                        </span>
+                        {isExpanded ? (
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                        ) : (
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                        )}
+                      </span>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="grid grid-cols-2 gap-2 p-2 bg-[#050A18]/80 border-t border-blue-950/60">
+                        {filteredItems.map(item => {
+                          const ItemIcon = item.icon;
+                          const isSelected = activeModule === item.id;
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => handleNavigate(item.id)}
+                              className={`flex flex-col items-center justify-center p-2.5 rounded-xl text-center transition-all cursor-pointer min-h-[66px] ${
+                                isSelected
+                                  ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-bold shadow-md shadow-blue-500/25 border border-blue-400'
+                                  : 'bg-[#0A142A]/90 hover:bg-slate-800/90 text-slate-300 hover:text-white border border-blue-900/30'
+                              }`}
+                            >
+                              <ItemIcon className={`w-5 h-5 mb-1 shrink-0 ${isSelected ? 'text-white' : 'text-blue-400'}`} />
+                              <span className="text-[10px] font-extrabold leading-tight text-center line-clamp-2 w-full">{item.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
 
             {/* Logout button at bottom of sidebar */}
             <div className="pt-2 border-t border-blue-950/80">
@@ -787,10 +916,13 @@ export default function AdminPortal({
                     onLogout?.();
                   }
                 }}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-rose-500 hover:bg-rose-950/30 hover:text-rose-400 transition-colors text-xs font-bold cursor-pointer"
+                className={`w-full flex items-center ${
+                  isSidebarCollapsed ? 'justify-center p-2' : 'gap-2 px-3 py-2'
+                } rounded-xl text-rose-500 hover:bg-rose-950/30 hover:text-rose-400 transition-colors text-xs font-bold cursor-pointer`}
+                title="Déconnexion"
               >
-                <LogOut className="w-4 h-4 text-rose-500" />
-                <span>Déconnexion</span>
+                <LogOut className="w-4 h-4 text-rose-500 shrink-0" />
+                {!isSidebarCollapsed && <span>Déconnexion</span>}
               </button>
             </div>
           </div>
@@ -798,9 +930,45 @@ export default function AdminPortal({
       )}
 
       {/* MAIN CONTENT AREA */}
-      <div className={`flex-1 min-w-0 w-full space-y-6 ${!isSidebarOpen ? 'pl-14 lg:pl-0' : ''}`}>
-        {/* Top Action Bar: Search Bar */}
-        <div className="flex items-center justify-end gap-3 w-full px-1">
+      <div className="flex-1 min-w-0 w-full space-y-6">
+        {/* Top Action Bar: Search Bar, Sidebar Toggle & Presentation Button */}
+        <div className="flex items-center justify-between gap-3 w-full px-1">
+          {/* Header Sidebar Collapse/Expand Toggle Button */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                if (!isSidebarOpen) {
+                  toggleSidebar(true);
+                } else {
+                  toggleSidebarCollapse();
+                }
+              }}
+              className="px-3 py-2 bg-slate-900/80 hover:bg-blue-900/40 text-slate-300 hover:text-white border border-slate-700/60 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+              title={!isSidebarOpen ? "Open Navigation Sidebar" : isSidebarCollapsed ? "Expand Navigation Sidebar" : "Collapse Navigation Sidebar"}
+            >
+              {!isSidebarOpen ? (
+                <PanelLeftOpen className="w-4 h-4 text-blue-400" />
+              ) : isSidebarCollapsed ? (
+                <PanelLeftOpen className="w-4 h-4 text-emerald-400" />
+              ) : (
+                <PanelLeftClose className="w-4 h-4 text-slate-400" />
+              )}
+              <span className="hidden sm:inline">
+                {!isSidebarOpen ? "Open Menu" : isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+              </span>
+            </button>
+
+            {/* Quick App Overview Presentation Button */}
+            <button
+              onClick={() => openPresentationDeck(0)}
+              className="px-3 py-2 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+              title="Open Users Portals Presentation & Architecture Overview"
+            >
+              <Presentation className="w-4 h-4 text-amber-400" />
+              <span className="hidden md:inline">Portals Presentation</span>
+            </button>
+          </div>
+
           <GlobalSearchHeader
             students={students}
             teachers={teachers}
@@ -916,19 +1084,55 @@ export default function AdminPortal({
             {/* 1. DASHBOARD MODULE */}
             {activeModule === 'dashboard' && (
               <div className="space-y-6">
-                {/* Dashboard Header with Bulk Export Button */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                {/* Dashboard Header with Quick Actions & Bulk Export Button */}
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                   <div>
                     <h2 className="text-lg font-black text-slate-900">Administrator Dashboard & Analytics</h2>
-                    <p className="text-xs text-slate-500 mt-0.5">Overview of school enrollment, financial status, and academic progress.</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Overview of school enrollment, financial audit, portal governance, and academic progress.</p>
                   </div>
-                  <button
-                    onClick={handleDashboardBulkExport}
-                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 transition-all cursor-pointer flex items-center gap-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Bulk Export Students & Academic Records (CSV)</span>
-                  </button>
+
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    {/* Direct Audit of Financial Records Button */}
+                    <button
+                      onClick={() => handleNavigate('financial_audit')}
+                      id="admin-dashboard-audit-btn"
+                      className="px-3.5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 transition-all cursor-pointer flex items-center gap-2"
+                      title="Run Full Audit of Fee Collections, Balances, and Financial Discrepancies"
+                    >
+                      <ShieldCheck className="w-4 h-4 text-emerald-200" />
+                      <span>Audit Financial Records</span>
+                    </button>
+
+                    {/* Users Portal Review Button */}
+                    <button
+                      onClick={() => handleNavigate('users_portal_review')}
+                      id="admin-dashboard-portal-review-btn"
+                      className="px-3.5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-600/20 transition-all cursor-pointer flex items-center gap-2"
+                      title="Review all 4 user portals, RBAC permissions, and active logins"
+                    >
+                      <Eye className="w-4 h-4 text-indigo-200" />
+                      <span>Users Portal Review</span>
+                    </button>
+
+                    {/* Sub-Accountant Role Privileges Button */}
+                    <button
+                      onClick={() => handleNavigate('sub_accountant_roles')}
+                      id="admin-dashboard-sub-accountant-btn"
+                      className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-100 rounded-xl text-xs font-bold border border-slate-700 transition-all cursor-pointer flex items-center gap-2"
+                      title="Manage Sub-Accountant Privileges and Role Toggles"
+                    >
+                      <UserCog className="w-4 h-4 text-blue-400" />
+                      <span>Sub-Accountants</span>
+                    </button>
+
+                    <button
+                      onClick={handleDashboardBulkExport}
+                      className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-800 border border-slate-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2"
+                    >
+                      <Download className="w-4 h-4 text-slate-600" />
+                      <span>Export CSV</span>
+                    </button>
+                  </div>
                 </div>
 
             {/* Top Stat Summary Cards */}
@@ -985,6 +1189,289 @@ export default function AdminPortal({
               payments={payments}
               onNavigate={(mod) => setActiveModule(mod)}
             />
+
+            {/* USERS PORTAL REVIEW & MULTI-ROLE ARCHITECTURE GOVERNANCE MODULE */}
+            <div className="bg-gradient-to-br from-[#080E21] via-[#0B152F] to-[#0A1024] border border-blue-900/60 rounded-3xl p-6 sm:p-7 shadow-2xl text-white space-y-6 relative overflow-hidden">
+              {/* Background decorative watermark */}
+              <div className="absolute right-0 top-0 w-96 h-96 bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
+              
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-blue-950/80 pb-5 relative z-10">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-blue-500 flex items-center justify-center shadow-xl shadow-indigo-500/25 text-white shrink-0">
+                    <Shield className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h3 className="text-lg font-black text-white tracking-tight">
+                        Users Portal Review & Multi-Role Governance
+                      </h3>
+                      <span className="bg-indigo-950 text-indigo-300 border border-indigo-700/60 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                        4 Integrated Portals
+                      </span>
+                      <span className="bg-emerald-950 text-emerald-300 border border-emerald-700/60 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        Live & Synchronized
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1">
+                      Comprehensive architectural review of school access portals, user privilege scopes, operational metrics, and quick jump controls.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+                  <button
+                    onClick={() => openPresentationDeck(0)}
+                    className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs shadow-lg shadow-amber-500/25 transition-all cursor-pointer"
+                  >
+                    <Presentation className="w-4 h-4 text-slate-950" />
+                    <span>Launch Institutional Deck</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveModule('system_manage_logins')}
+                    className="flex items-center gap-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/80 px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                  >
+                    <UserCog className="w-4 h-4 text-blue-400" />
+                    <span>Manage User Logins</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 4 Portals Review Bento Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 relative z-10">
+                {/* 1. Admin Portal Review Card */}
+                <div className="bg-[#0D1836]/90 border border-blue-800/40 hover:border-blue-500/60 rounded-2xl p-4.5 flex flex-col justify-between transition-all group hover:shadow-xl">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center">
+                        <Building2 className="w-5 h-5" />
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-blue-950 text-blue-300 font-bold border border-blue-800/50">
+                        MASTER
+                      </span>
+                    </div>
+
+                    <div>
+                      <h4 className="font-extrabold text-white text-sm">Administrator Portal</h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                        Full institutional control over academics, staffing, finance tariffs, and system configurations.
+                      </p>
+                    </div>
+
+                    <div className="bg-[#070D1E]/80 rounded-xl p-2.5 border border-blue-950 space-y-1.5 text-[11px]">
+                      <div className="flex justify-between text-slate-400">
+                        <span>Students Enrolled:</span>
+                        <strong className="text-white font-mono">{students.length}</strong>
+                      </div>
+                      <div className="flex justify-between text-slate-400">
+                        <span>Academic Faculty:</span>
+                        <strong className="text-white font-mono">{teachers.length}</strong>
+                      </div>
+                      <div className="flex justify-between text-slate-400">
+                        <span>System Security:</span>
+                        <span className="text-emerald-400 font-bold">Encrypted RBAC</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 mt-3 border-t border-blue-950/80 flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => openPresentationDeck(1)}
+                      className="text-[11px] font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Review Deck</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveModule('system_school_setup')}
+                      className="text-[11px] font-bold bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                    >
+                      Setup School
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. Teacher Portal Review Card */}
+                <div className="bg-[#0D1836]/90 border border-indigo-800/40 hover:border-indigo-500/60 rounded-2xl p-4.5 flex flex-col justify-between transition-all group hover:shadow-xl">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center">
+                        <GraduationCap className="w-5 h-5" />
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-indigo-950 text-indigo-300 font-bold border border-indigo-800/50">
+                        ACADEMIC
+                      </span>
+                    </div>
+
+                    <div>
+                      <h4 className="font-extrabold text-white text-sm">Teacher Portal</h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                        Class assessments, score capture (30% SBA + 70% Exam), automated remarks & attendance.
+                      </p>
+                    </div>
+
+                    <div className="bg-[#070D1E]/80 rounded-xl p-2.5 border border-blue-950 space-y-1.5 text-[11px]">
+                      <div className="flex justify-between text-slate-400">
+                        <span>Active Faculty:</span>
+                        <strong className="text-white font-mono">{teachers.length}</strong>
+                      </div>
+                      <div className="flex justify-between text-slate-400">
+                        <span>Terminal Reports:</span>
+                        <strong className="text-white font-mono">{reports.length}</strong>
+                      </div>
+                      <div className="flex justify-between text-slate-400">
+                        <span>Grade Formula:</span>
+                        <span className="text-indigo-300 font-bold">Standard SBA 30/70</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 mt-3 border-t border-blue-950/80 flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => openPresentationDeck(2)}
+                      className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Review Deck</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveModule('teacher_assign')}
+                      className="text-[11px] font-bold bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                    >
+                      Assign Staff
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. Accountant & Bursary Portal Review Card */}
+                <div className="bg-[#0D1836]/90 border border-emerald-800/40 hover:border-emerald-500/60 rounded-2xl p-4.5 flex flex-col justify-between transition-all group hover:shadow-xl">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
+                        <Wallet className="w-5 h-5" />
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-950 text-emerald-300 font-bold border border-emerald-800/50">
+                        FINANCIAL
+                      </span>
+                    </div>
+
+                    <div>
+                      <h4 className="font-extrabold text-white text-sm">Accountant & Bursary</h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                        Fee billing, instant receipt generation, payment history ledger, and defaulter tracking.
+                      </p>
+                    </div>
+
+                    <div className="bg-[#070D1E]/80 rounded-xl p-2.5 border border-blue-950 space-y-1.5 text-[11px]">
+                      <div className="flex justify-between text-slate-400">
+                        <span>Total Invoices:</span>
+                        <strong className="text-white font-mono">{bills.length}</strong>
+                      </div>
+                      <div className="flex justify-between text-slate-400">
+                        <span>Payment Receipts:</span>
+                        <strong className="text-white font-mono">{payments.length}</strong>
+                      </div>
+                      <div className="flex justify-between text-slate-400">
+                        <span>Pending Arrears:</span>
+                        <strong className="text-rose-400 font-mono font-bold">{totalPending.toFixed(0)} CFA</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 mt-3 border-t border-blue-950/80 flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => openPresentationDeck(3)}
+                      className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Review Deck</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveModule('fee_collection')}
+                      className="text-[11px] font-bold bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                    >
+                      Collect Fees
+                    </button>
+                  </div>
+                </div>
+
+                {/* 4. Student & Parent Portal Review Card */}
+                <div className="bg-[#0D1836]/90 border border-purple-800/40 hover:border-purple-500/60 rounded-2xl p-4.5 flex flex-col justify-between transition-all group hover:shadow-xl">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="w-10 h-10 rounded-xl bg-purple-600/20 text-purple-400 border border-purple-500/30 flex items-center justify-center">
+                        <Users className="w-5 h-5" />
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-purple-950 text-purple-300 font-bold border border-purple-800/50">
+                        STUDENT / PARENT
+                      </span>
+                    </div>
+
+                    <div>
+                      <h4 className="font-extrabold text-white text-sm">Student & Parent Portal</h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                        Official terminal report cards, broadcasted grades, financial fee status, and announcements.
+                      </p>
+                    </div>
+
+                    <div className="bg-[#070D1E]/80 rounded-xl p-2.5 border border-blue-950 space-y-1.5 text-[11px]">
+                      <div className="flex justify-between text-slate-400">
+                        <span>Enrolled Students:</span>
+                        <strong className="text-white font-mono">{students.length}</strong>
+                      </div>
+                      <div className="flex justify-between text-slate-400">
+                        <span>Access Protocol:</span>
+                        <span className="text-purple-300 font-bold">Index No + PIN</span>
+                      </div>
+                      <div className="flex justify-between text-slate-400">
+                        <span>Report Card Print:</span>
+                        <span className="text-emerald-400 font-bold">HD Color Ready</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 mt-3 border-t border-blue-950/80 flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => openPresentationDeck(4)}
+                      className="text-[11px] font-bold text-purple-400 hover:text-purple-300 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Review Deck</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveModule('system_student_portal_ctrl')}
+                      className="text-[11px] font-bold bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                    >
+                      Portal Controls
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Portal Synchronization & Institutional Showcase Banner */}
+              <div className="bg-[#060B1A]/80 border border-blue-950 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="w-4 h-4 text-blue-400" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-200">
+                      Unified Multi-Role Architecture:
+                    </span>
+                    <span className="text-slate-400 ml-1.5">
+                      All role accounts (Admin, Teacher, Bursar, Student) are synchronized in real-time with instant access auditing and report broadcasts.
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => openPresentationDeck(0)}
+                  className="px-3.5 py-2 bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 border border-blue-500/40 rounded-xl font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Interactive 10-Slide Overview</span>
+                </button>
+              </div>
+            </div>
 
             {/* LIVE TERMINAL EXAMINATION REPORTS & CLASS BROADCAST CONSOLE */}
             <div className="bg-[#0B142A] border border-blue-900/60 rounded-2xl p-6 shadow-xl space-y-5 text-white">
@@ -1323,6 +1810,30 @@ export default function AdminPortal({
                     </p>
                   </div>
                 </button>
+
+                {/* Menu 10: Staff Payroll System */}
+                <button
+                  onClick={() => setActiveModule('payroll_dashboard')}
+                  className="group p-4 bg-gradient-to-br from-purple-50/80 to-slate-50 hover:from-purple-600 hover:to-purple-700 border border-purple-100 hover:border-purple-600 rounded-2xl text-left transition-all duration-200 shadow-2xs hover:shadow-lg hover:-translate-y-1 cursor-pointer flex flex-col justify-between space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="w-10 h-10 bg-purple-600 group-hover:bg-white text-white group-hover:text-purple-600 rounded-xl flex items-center justify-center transition-colors shadow-xs">
+                      <Wallet className="w-5 h-5" />
+                    </div>
+                    <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-purple-100 group-hover:bg-purple-500 text-purple-800 group-hover:text-white uppercase tracking-wider transition-colors">
+                      Payroll & SSNIT
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-xs text-slate-900 group-hover:text-white transition-colors flex items-center gap-1">
+                      Staff Payroll & Remuneration
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+                    </h4>
+                    <p className="text-[11px] text-slate-500 group-hover:text-purple-100 transition-colors mt-0.5 line-clamp-2">
+                      Monthly salary runs, SSNIT 5.5%, PAYE tax, loans & HD payslips
+                    </p>
+                  </div>
+                </button>
               </div>
             </div>
 
@@ -1513,6 +2024,26 @@ export default function AdminPortal({
           />
         )}
 
+        {/* 7A. FINANCIAL AUDIT MANAGER MODULE */}
+        {(activeModule === 'financial_audit' || activeModule === 'financial_records_audit' || activeModule === 'audit_financial') && (
+          <FinancialAuditManager
+            currentUser={currentUser}
+            students={students}
+            bills={bills}
+            payments={payments}
+            onClose={() => handleNavigate('dashboard')}
+          />
+        )}
+
+        {/* 7B. STAFF PAYROLL & REMUNERATION SYSTEM MODULE */}
+        {(activeModule.startsWith('payroll_') || activeModule === 'payroll') && (
+          <PayrollManager
+            currentUserRole="Admin"
+            teachers={teachers}
+            onAddNotification={onAddNotification}
+          />
+        )}
+
         {/* 8. NOTIFICATIONS & SMS & WHATSAPP & ACTIVITY LOGS MODULES */}
         {(activeModule.startsWith('notif_') || activeModule.startsWith('sms_') || activeModule.startsWith('whatsapp_') || activeModule.startsWith('logs_') || activeModule === 'send_notification' || activeModule === 'notification_history' || activeModule === 'compose_sms' || activeModule === 'sms_history' || activeModule === 'student_login_history' || activeModule === 'user_login_history' || activeModule === 'student_logins_history' || activeModule === 'user_logins_history' || activeModule === 'students_logins_history') && (
           <CommunicationLogsManager
@@ -1590,6 +2121,13 @@ export default function AdminPortal({
 
       {/* Floating Quick Action Speed Dial */}
       <QuickActionSpeedDial portalType="admin" onAction={handleQuickAction} />
+
+      {/* App Presentation & Institutional Portals Overview Deck */}
+      <AppPresentationOverviewModal
+        isOpen={showPresentationModal}
+        onClose={() => setShowPresentationModal(false)}
+        initialSlideIndex={presentationInitialSlide}
+      />
     </div>
   );
 }

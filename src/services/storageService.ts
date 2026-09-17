@@ -20,7 +20,11 @@ import {
   ClassReportBroadcast,
   ThemePaletteConfig,
   CourseItem,
-  TeacherAttendanceRecord
+  TeacherAttendanceRecord,
+  SchoolExpenseRecord,
+  SecretaryDailySummary,
+  FinancialAuditReport,
+  AccountantPrivilegesConfig
 } from '../types';
 import { 
   INITIAL_STUDENTS, 
@@ -65,9 +69,39 @@ export const STORAGE_KEYS = {
   CLASS_FEE_TARIFFS: 'jipas_class_fee_tariffs_matrix',
   CLASS_BROADCASTS: 'jipas_class_report_broadcasts',
   TEACHER_ATTENDANCE: 'jipas_teacher_attendance_records',
+  EXPENSES: 'jipas_school_expenses_records',
+  ACCOUNTANT_PRIVILEGES: 'jipas_accountant_privileges_config',
+  SECRETARY_SUMMARIES: 'jipas_secretary_daily_summaries',
+  FINANCIAL_AUDITS: 'jipas_financial_audit_reports',
   DEMO_CLEARED: 'jipas_demo_data_cleared',
   THEME_PALETTE: 'jipas_global_theme_palette'
 } as const;
+
+export const DEFAULT_ACCOUNTANT_PRIVILEGES: AccountantPrivilegesConfig = {
+  canCollectFees: true,
+  canEnterExpenses: true,
+  canApproveExpenses: true,
+  canManageFeeSettings: true,
+  canRunPayroll: true,
+  canViewFinancialReports: true,
+  canPerformAudit: true,
+  canVoidPayments: true,
+  canExportData: true,
+  canManageSecretaryRecords: true
+};
+
+export const DEFAULT_SUB_ACCOUNTANT_PRIVILEGES: AccountantPrivilegesConfig = {
+  canCollectFees: true,
+  canEnterExpenses: true,
+  canApproveExpenses: false,
+  canManageFeeSettings: false,
+  canRunPayroll: false,
+  canViewFinancialReports: true,
+  canPerformAudit: false,
+  canVoidPayments: false,
+  canExportData: true,
+  canManageSecretaryRecords: true
+};
 
 export interface StaffSecretCodeRecord {
   id: string;
@@ -118,7 +152,37 @@ export const INITIAL_SYSTEM_USERS: UserAccountItem[] = [
     createdAt: '2026-01-15',
     isApproved: true,
     registrationType: 'faculty',
-    department: 'Accounts & Finance'
+    department: 'Accounts & Finance',
+    accountantPrivileges: DEFAULT_ACCOUNTANT_PRIVILEGES
+  },
+  {
+    id: 'usr-subacc-1',
+    name: 'Grace Tetteh (Sub-Accountant)',
+    email: 'subaccountant@jipas.edu.gh',
+    username: 'subaccountant',
+    role: 'sub_accountant',
+    phone: '0244988776',
+    status: 'Active',
+    lastLogin: 'Today 08:45',
+    createdAt: '2026-02-01',
+    isApproved: true,
+    registrationType: 'faculty',
+    department: 'Accounts & Finance',
+    accountantPrivileges: DEFAULT_SUB_ACCOUNTANT_PRIVILEGES
+  },
+  {
+    id: 'usr-sec-1',
+    name: 'Abena Osei (Secretary)',
+    email: 'secretary@jipas.edu.gh',
+    username: 'secretary',
+    role: 'secretary',
+    phone: '0243119988',
+    status: 'Active',
+    lastLogin: 'Today 08:00',
+    createdAt: '2026-02-10',
+    isApproved: true,
+    registrationType: 'faculty',
+    department: 'Administrative Secretarial Desk'
   },
   {
     id: 'usr-teach-1',
@@ -133,6 +197,150 @@ export const INITIAL_SYSTEM_USERS: UserAccountItem[] = [
     isApproved: true,
     registrationType: 'faculty',
     department: 'Primary School'
+  }
+];
+
+export const INITIAL_EXPENSES: SchoolExpenseRecord[] = [
+  {
+    id: 'exp-101',
+    voucherNo: 'VCH-2026-001',
+    date: '2026-09-08',
+    category: 'Utilities & Water',
+    title: 'Monthly Water Utility Bill (GWCL)',
+    description: 'Ghana Water Company Limited monthly pipeline water supply and reservoir fill.',
+    amount: 450,
+    paymentMethod: 'Bank Transfer',
+    vendorPayee: 'Ghana Water Company Ltd',
+    department: 'General Operations',
+    recordedBy: 'Frank Mensah (Accountant)',
+    recorderRole: 'accountant',
+    approvedBy: 'JAKRei (Administrator)',
+    status: 'Approved',
+    referenceNo: 'GWCL-99421',
+    academicYear: '2025-2026',
+    term: 'Third Term',
+    createdAt: '2026-09-08T09:30:00Z'
+  },
+  {
+    id: 'exp-102',
+    voucherNo: 'VCH-2026-002',
+    date: '2026-09-07',
+    category: 'Teaching & Lab Supplies',
+    title: 'Whiteboard Markers, Chalk & Exercise Books',
+    description: 'Bulk purchase of stationery and lesson plan books for primary & JHS teachers.',
+    amount: 680,
+    paymentMethod: 'Mobile Money',
+    vendorPayee: 'Accra City Stationers',
+    department: 'Academic Faculty',
+    recordedBy: 'Abena Osei (Secretary)',
+    recorderRole: 'secretary',
+    approvedBy: 'Frank Mensah (Accountant)',
+    status: 'Approved',
+    referenceNo: 'MOM-77391',
+    academicYear: '2025-2026',
+    term: 'Third Term',
+    createdAt: '2026-09-07T11:15:00Z'
+  },
+  {
+    id: 'exp-103',
+    voucherNo: 'VCH-2026-003',
+    date: '2026-09-06',
+    category: 'Repairs & Maintenance',
+    title: 'Classroom Ceiling Fan & Socket Electrical Repair',
+    description: 'Replacement of 3 burnt regulator switches and rewiring in Basic 2 & JHS 1 blocks.',
+    amount: 320,
+    paymentMethod: 'Cash',
+    vendorPayee: 'Kwame Electrician Works',
+    department: 'Estate & Infrastructure',
+    recordedBy: 'Grace Tetteh (Sub-Accountant)',
+    recorderRole: 'sub_accountant',
+    approvedBy: 'JAKRei (Administrator)',
+    status: 'Approved',
+    referenceNo: 'CASH-089',
+    academicYear: '2025-2026',
+    term: 'Third Term',
+    createdAt: '2026-09-06T14:45:00Z'
+  },
+  {
+    id: 'exp-104',
+    voucherNo: 'VCH-2026-004',
+    date: '2026-09-05',
+    category: 'Administrative / Petty Cash',
+    title: 'Office Dispatch & Communication Airtime',
+    description: 'Postal stamps, DHL document courier, and parent phone call airtime bundles.',
+    amount: 150,
+    paymentMethod: 'Petty Cash',
+    vendorPayee: 'Postal & Telecom Services',
+    department: 'Secretarial Desk',
+    recordedBy: 'Abena Osei (Secretary)',
+    recorderRole: 'secretary',
+    approvedBy: 'Frank Mensah (Accountant)',
+    status: 'Approved',
+    referenceNo: 'PTY-2026-014',
+    academicYear: '2025-2026',
+    term: 'Third Term',
+    createdAt: '2026-09-05T10:00:00Z'
+  },
+  {
+    id: 'exp-105',
+    voucherNo: 'VCH-2026-005',
+    date: '2026-09-04',
+    category: 'Sanitation & Cleaning',
+    title: 'Disinfectants, Liquid Soap & Waste Bins',
+    description: 'Weekly campus sanitary restocking for student washrooms and dining hall.',
+    amount: 280,
+    paymentMethod: 'Cash',
+    vendorPayee: 'CleanCare Enterprise',
+    department: 'Health & Sanitation',
+    recordedBy: 'Frank Mensah (Accountant)',
+    recorderRole: 'accountant',
+    approvedBy: 'JAKRei (Administrator)',
+    status: 'Approved',
+    referenceNo: 'CASH-095',
+    academicYear: '2025-2026',
+    term: 'Third Term',
+    createdAt: '2026-09-04T16:20:00Z'
+  }
+];
+
+export const INITIAL_SECRETARY_SUMMARIES: SecretaryDailySummary[] = [
+  {
+    id: 'sec-sum-1',
+    date: '2026-09-08',
+    secretaryId: 'usr-sec-1',
+    secretaryName: 'Abena Osei (Secretary)',
+    totalFeesCollected: 850,
+    totalExpensesLogged: 150,
+    netCashOnHand: 700,
+    transactionCount: 4,
+    isReconciledWithBursar: true,
+    reconciledBy: 'Frank Mensah (Accountant)',
+    reconciledAt: '2026-09-08 16:30',
+    reconciliationNotes: 'Cash handed over and counted at bursary counter.'
+  }
+];
+
+export const INITIAL_FINANCIAL_AUDITS: FinancialAuditReport[] = [
+  {
+    id: 'audit-rep-2026-t3',
+    auditDate: '2026-09-08',
+    auditPeriod: 'Third Term (2025-2026)',
+    auditorName: 'JAKRei (Lead Auditor / Admin)',
+    auditorRole: 'Internal Audit & Governance',
+    totalBilled: 14200,
+    totalCollections: 11450,
+    accountantCollections: 8950,
+    secretaryCollections: 2500,
+    totalExpenditures: 1880,
+    totalPayrollPayout: 4620,
+    netOperatingSurplus: 4950,
+    unreconciledSecretaryCash: 0,
+    flaggedDiscrepanciesCount: 0,
+    discrepancies: [],
+    auditStatus: 'Clean / Reconciled',
+    certifiedBy: 'JAKRei (Administrator)',
+    certifiedAt: '2026-09-08 17:00',
+    notes: 'Comprehensive internal audit conducted across all accounts, student bills, fee receipts, secretary petty cash, and monthly staff payroll.'
   }
 ];
 
@@ -643,3 +851,51 @@ export function applyThemePaletteToDom(palette: ThemePaletteConfig): void {
     body.style.backgroundColor = palette.backgroundColor;
   }
 }
+
+// School Expenses Getters & Setters
+export function getStoredExpenses(): SchoolExpenseRecord[] {
+  return readStorage<SchoolExpenseRecord[]>(STORAGE_KEYS.EXPENSES, INITIAL_EXPENSES);
+}
+
+export function saveStoredExpenses(expenses: SchoolExpenseRecord[]): void {
+  writeStorage(STORAGE_KEYS.EXPENSES, expenses);
+}
+
+// Secretary Summaries Getters & Setters
+export function getStoredSecretarySummaries(): SecretaryDailySummary[] {
+  return readStorage<SecretaryDailySummary[]>(STORAGE_KEYS.SECRETARY_SUMMARIES, INITIAL_SECRETARY_SUMMARIES);
+}
+
+export function saveStoredSecretarySummaries(summaries: SecretaryDailySummary[]): void {
+  writeStorage(STORAGE_KEYS.SECRETARY_SUMMARIES, summaries);
+}
+
+// Financial Audit Reports Getters & Setters
+export function getStoredFinancialAudits(): FinancialAuditReport[] {
+  return readStorage<FinancialAuditReport[]>(STORAGE_KEYS.FINANCIAL_AUDITS, INITIAL_FINANCIAL_AUDITS);
+}
+
+export function saveStoredFinancialAudits(audits: FinancialAuditReport[]): void {
+  writeStorage(STORAGE_KEYS.FINANCIAL_AUDITS, audits);
+}
+
+// Payroll Runs Getters & Setters
+export function getStoredPayrollRuns(): any[] {
+  return readStorage<any[]>('jipas_payroll_runs', [
+    {
+      id: 'PAYROLL-2026-01',
+      month: 'January 2026',
+      totalStaff: 12,
+      grossTotal: 24500,
+      deductionsTotal: 3100,
+      netPayout: 21400,
+      status: 'Paid',
+      paymentDate: '2026-01-28'
+    }
+  ]);
+}
+
+export function saveStoredPayrollRuns(runs: any[]): void {
+  writeStorage('jipas_payroll_runs', runs);
+}
+

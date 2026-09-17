@@ -1,9 +1,22 @@
-export type UserRole = 'admin' | 'sub_admin' | 'teacher' | 'accountant' | 'student' | 'clerk';
+export type UserRole = 'admin' | 'sub_admin' | 'teacher' | 'accountant' | 'sub_accountant' | 'secretary' | 'student' | 'clerk';
+
+export interface AccountantPrivilegesConfig {
+  canCollectFees: boolean;
+  canEnterExpenses: boolean;
+  canApproveExpenses: boolean;
+  canManageFeeSettings: boolean;
+  canRunPayroll: boolean;
+  canViewFinancialReports: boolean;
+  canPerformAudit: boolean;
+  canVoidPayments: boolean;
+  canExportData: boolean;
+  canManageSecretaryRecords: boolean;
+}
 
 export interface User {
   id: string;
   name: string;
-  email: string;
+  email?: string;
   role: UserRole;
   phone?: string;
   classAssigned?: string;
@@ -11,6 +24,7 @@ export interface User {
   avatar?: string;
   allowedModules?: string[];
   privilege?: 'all' | 'read' | 'write';
+  accountantPrivileges?: AccountantPrivilegesConfig;
 }
 
 export interface Student {
@@ -39,6 +53,9 @@ export interface Student {
   enrolledBy?: string;
   submissionDate?: string;
   rejectionReason?: string;
+  name?: string;
+  currentClass?: string;
+  guardianName?: string;
 }
 
 export interface Teacher {
@@ -168,6 +185,7 @@ export interface StudentBill {
   arrears: number;
   discount: number;
   payable: number;
+  amount?: number;
   paid: number;
   balance: number;
   status: 'Fully Paid' | 'Partially Paid' | 'Unpaid' | 'Overpaid';
@@ -225,8 +243,13 @@ export interface PaymentRecord {
   method: 'Cash' | 'Mobile money' | 'Bank Transfer' | string;
   status: 'Fully Paid' | 'Partially Paid' | 'Verified' | string;
   collectedBy?: string;
+  collectorRole?: string;
+  classAssigned?: string;
+  referenceNo?: string;
+  paymentMethod?: string;
   receivedBy?: string;
   description?: string;
+  notes?: string;
   academicYear?: string;
   term?: string;
 }
@@ -541,7 +564,7 @@ export interface UserAccountItem {
   name: string;
   email: string;
   username: string;
-  role: 'admin' | 'teacher' | 'accountant' | 'clerk' | 'student';
+  role: 'admin' | 'sub_admin' | 'teacher' | 'accountant' | 'sub_accountant' | 'secretary' | 'clerk' | 'student';
   phone: string;
   status: 'Active' | 'Inactive' | 'Locked' | 'Pending';
   lastLogin: string;
@@ -559,6 +582,7 @@ export interface UserAccountItem {
   approvedAt?: string;
   privilege?: 'read' | 'read_write';
   allowedModules?: string[];
+  accountantPrivileges?: AccountantPrivilegesConfig;
   isEmailVerified?: boolean;
   emailVerifiedAt?: string;
 }
@@ -623,6 +647,51 @@ export interface ScoreConversionItem {
   description?: string;
 }
 
+export interface SchoolExpenseRecord {
+  id: string;
+  voucherNo: string;
+  date: string;
+  category: 'Utilities & Water' | 'Electricity & Power' | 'Teaching & Lab Supplies' | 'Stationery & Printing' | 'Repairs & Maintenance' | 'Staff Welfare & Refreshment' | 'Sanitation & Cleaning' | 'Transport & Fuel' | 'Examination Materials' | 'ICT & Software Licenses' | 'Boarding & Kitchen Supplies' | 'Administrative / Petty Cash' | 'Sports & Extra-Curricular' | 'Other' | string;
+  title: string;
+  description?: string;
+  amount: number;
+  paymentMethod: 'Cash' | 'Mobile Money' | 'Bank Transfer' | 'Cheque' | 'Petty Cash' | string;
+  vendorPayee: string;
+  department?: string;
+  recordedBy: string; // e.g. "Accountant (Grace Tetteh)", "Secretary (Abena Osei)"
+  recorderRole: 'accountant' | 'sub_accountant' | 'secretary' | 'admin' | string;
+  approvedBy?: string;
+  status: 'Approved' | 'Pending' | 'Paid' | 'Reconciled' | 'Void';
+  receiptAttachmentUrl?: string;
+  referenceNo?: string;
+  academicYear?: string;
+  term?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface SecretaryDailySummary {
+  id: string;
+  date: string;
+  secretaryId: string;
+  secretaryName: string;
+  totalFeesCollected: number;
+  totalExpensesLogged: number;
+  totalExpensesIncurred?: number;
+  netCashOnHand: number;
+  transactionCount?: number;
+  receiptsCount?: number;
+  feesCount?: number;
+  expensesCount?: number;
+  isReconciled?: boolean;
+  isReconciledWithBursar?: boolean;
+  reconciledBy?: string;
+  reconciledAt?: string;
+  reconciliationNotes?: string;
+  notes?: string;
+  createdAt?: string;
+}
+
 export interface IncomeExpenseItem {
   id: string;
   date: string;
@@ -652,6 +721,36 @@ export interface FinancialAuditItem {
   changes?: string;
   ipAddress?: string;
   details?: string;
+}
+
+export interface FinancialAuditReport {
+  id: string;
+  auditDate: string;
+  auditPeriod?: string;
+  auditorName?: string;
+  auditorRole?: string;
+  academicYear?: string;
+  term?: string;
+  auditedBy?: string;
+  totalBilled: number;
+  totalCollections?: number;
+  totalCollected?: number;
+  accountantCollections?: number;
+  secretaryCollections?: number;
+  totalExpenditures?: number;
+  totalExpenses?: number;
+  totalPayrollPayout?: number;
+  totalPayroll?: number;
+  netOperatingSurplus?: number;
+  netSurplus?: number;
+  unreconciledSecretaryCash?: number;
+  flaggedDiscrepanciesCount?: number;
+  discrepancies: any;
+  auditStatus: 'Clean / Reconciled' | 'Discrepancies Flagged' | 'Action Required' | 'Requires Action' | 'Balanced' | string;
+  certifiedBy?: string;
+  certifiedAt?: string;
+  createdAt?: string;
+  notes?: string;
 }
 
 export interface PaymentMethodConfig {
@@ -709,3 +808,141 @@ export interface ClassFeeTariffItem {
   notes?: string;
   customBreakdown?: { label: string; amount: number }[];
 }
+
+export interface StaffAllowanceBreakdown {
+  responsibility: number;
+  transport: number;
+  housing: number;
+  utilityHardship: number;
+  overtime: number;
+  bonus: number;
+  other: number;
+}
+
+export interface StaffDeductionBreakdown {
+  ssnitEmployee: number;
+  payeTax: number;
+  welfareFund: number;
+  loanRepayment: number;
+  absenteeismPenalty: number;
+  other: number;
+}
+
+export interface StaffSalaryStructure {
+  id: string;
+  staffId: string;
+  staffName: string;
+  staffType: 'Teaching' | 'Non-Teaching' | 'Administrative' | 'Support';
+  designation: string;
+  department: string;
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  ssnitNumber: string;
+  tinNumber: string;
+  basicSalary: number;
+  allowances: StaffAllowanceBreakdown;
+  paymentMethod: 'Bank Transfer' | 'Mobile Money' | 'Cash' | 'Cheque';
+  isActive: boolean;
+  phone?: string;
+  email?: string;
+  updatedAt?: string;
+}
+
+export interface StaffPayslipItem {
+  id: string;
+  payrollRunId: string;
+  voucherNo: string;
+  staffId: string;
+  staffName: string;
+  staffType: 'Teaching' | 'Non-Teaching' | 'Administrative' | 'Support';
+  designation: string;
+  department: string;
+  month: string;
+  payPeriodStart: string;
+  payPeriodEnd: string;
+  paymentDate: string;
+  bankName: string;
+  accountNumber: string;
+  ssnitNumber: string;
+  tinNumber: string;
+  paymentMethod: 'Bank Transfer' | 'Mobile Money' | 'Cash' | 'Cheque';
+  basicSalary: number;
+  allowances: StaffAllowanceBreakdown;
+  totalAllowances: number;
+  grossEarnings: number;
+  deductions: StaffDeductionBreakdown;
+  totalDeductions: number;
+  netSalary: number;
+  employerContribution: {
+    ssnitEmployer: number;
+    tier2Fund: number;
+  };
+  status: 'Draft' | 'Approved' | 'Paid' | 'Held';
+  notes?: string;
+  paidAt?: string;
+  paidBy?: string;
+}
+
+export interface PayrollRun {
+  id: string;
+  batchNumber: string;
+  month: string;
+  academicYear: string;
+  term: string;
+  totalStaff: number;
+  totalBasicSalary: number;
+  totalAllowances: number;
+  totalGrossPay: number;
+  totalSSNITEmployee: number;
+  totalSSNITEmployer: number;
+  totalPAYETax: number;
+  totalWelfare: number;
+  totalLoanDeductions: number;
+  totalDeductions: number;
+  totalNetPayout: number;
+  status: 'Draft' | 'Approved' | 'Disbursed' | 'Archived';
+  createdAt: string;
+  createdBy: string;
+  approvedAt?: string;
+  approvedBy?: string;
+  disbursedAt?: string;
+  disbursedBy?: string;
+  payslips: StaffPayslipItem[];
+  notes?: string;
+}
+
+export interface StaffLoanAdvance {
+  id: string;
+  staffId: string;
+  staffName: string;
+  staffType: string;
+  loanType: 'Salary Advance' | 'Emergency Staff Loan' | 'Vehicle / Equipment Loan' | 'Welfare Relief Loan';
+  principalAmount: number;
+  monthlyDeduction: number;
+  amountRepaid: number;
+  remainingBalance: number;
+  durationMonths: number;
+  monthsRemaining: number;
+  startDate: string;
+  expectedEndDate: string;
+  status: 'Active' | 'Paid Off' | 'Pending' | 'Suspended';
+  approvedBy?: string;
+  reason?: string;
+}
+
+export interface PayrollSettingsConfig {
+  currencySymbol: string;
+  ssnitEmployeeRate: number;
+  ssnitEmployerRate: number;
+  tier2EmployeeRate: number;
+  defaultWelfareDeduction: number;
+  enableAutoAbsenteeismDeduction: boolean;
+  dailyAbsenteeismRate: number;
+  defaultPayDay: number;
+  schoolSignatoryTitle: string;
+  headmasterSignatoryTitle: string;
+  payslipHeaderNote: string;
+  payslipFooterNote: string;
+}
+

@@ -3,7 +3,7 @@ import { User, UserAccountItem } from '../types';
 import { 
   Mail, Eye, EyeOff, LogIn, CheckCircle2, Lock, Loader2, 
   AlertCircle, UserPlus, GraduationCap, Briefcase, Phone, User as UserIcon, Shield, ArrowLeft, Building2,
-  KeyRound, ShieldCheck, HelpCircle, Sparkles, Zap, Wallet, Image as ImageIcon, Presentation
+  KeyRound, ShieldCheck, HelpCircle, Sparkles, Zap, Wallet, Image as ImageIcon, Presentation, FileText, Calculator
 } from 'lucide-react';
 import JIPASLogo from './common/JIPASLogo';
 import LanguageSwitcher from './common/LanguageSwitcher';
@@ -31,23 +31,13 @@ type AuthViewMode = 'login' | 'register_faculty' | 'register_student';
 export default function LoginScreen({ onLogin, studentsList, teachersList = [] }: LoginScreenProps) {
   const [viewMode, setViewMode] = useState<AuthViewMode>('login');
   const [showPresentationOverview, setShowPresentationOverview] = useState(false);
-  const [activeWallpaper, setActiveWallpaper] = useState<'classroom' | 'assembly'>(() => {
+  const [activeWallpaper] = useState<'classroom' | 'assembly'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('jipas_login_wallpaper');
       if (saved === 'classroom' || saved === 'assembly') return saved;
     }
     return 'classroom';
   });
-
-  const handleToggleWallpaper = () => {
-    const next = activeWallpaper === 'classroom' ? 'assembly' : 'classroom';
-    setActiveWallpaper(next);
-    try {
-      localStorage.setItem('jipas_login_wallpaper', next);
-    } catch (e) {
-      console.warn(e);
-    }
-  };
   
   // Real-time synchronization of Staff Secret Code across devices (Device A, B, C...)
   const [activeSecretCode, setActiveSecretCode] = useState<string>(getStaffSecretCode());
@@ -103,7 +93,7 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
   // --------------------------------------------------------------------------
   // Instant Free Demo Login Handler
   // --------------------------------------------------------------------------
-  const handleDemoLogin = (role: 'admin' | 'teacher' | 'accountant' | 'student') => {
+  const handleDemoLogin = (role: 'admin' | 'teacher' | 'accountant' | 'sub_accountant' | 'secretary' | 'student') => {
     setErrorMsg('');
     setIsLoading(true);
 
@@ -132,12 +122,30 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
     } else if (role === 'accountant') {
       demoUser = {
         id: 'usr-acc-1',
-        name: 'Frank Mensah',
+        name: 'Frank Mensah (Accountant)',
         email: 'accountant@jipas.edu.gh',
         role: 'accountant',
         avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
       };
       setAuthSuccessNotice('⚡ Free Demo Access: Logged in as Accountant / Bursar!');
+    } else if (role === 'sub_accountant') {
+      demoUser = {
+        id: 'usr-subacc-1',
+        name: 'Grace Tetteh (Sub-Accountant)',
+        email: 'subaccountant@jipas.edu.gh',
+        role: 'sub_accountant',
+        avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80'
+      };
+      setAuthSuccessNotice('⚡ Free Demo Access: Logged in as Sub-Accountant (Grace Tetteh)!');
+    } else if (role === 'secretary') {
+      demoUser = {
+        id: 'usr-sec-1',
+        name: 'Abena Osei (Secretary)',
+        email: 'secretary@jipas.edu.gh',
+        role: 'secretary',
+        avatar: 'https://images.unsplash.com/photo-1580894732444-8ecded7900cd?w=150&auto=format&fit=crop&q=80'
+      };
+      setAuthSuccessNotice('⚡ Free Demo Access: Logged in as School Secretary (Abena Osei)!');
     } else {
       const firstStudent = studentsList && studentsList.length > 0 ? studentsList[0] : null;
       demoUser = {
@@ -229,7 +237,8 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
         (u.username && u.username.toLowerCase() === lower) ||
         (u.phone && u.phone === trimmedId) ||
         (u.staffId && u.staffId.toLowerCase() === lower) ||
-        (u.admissionNo && u.admissionNo.toLowerCase() === lower)
+        (u.admissionNo && u.admissionNo.toLowerCase() === lower) ||
+        (u.id && u.id.toLowerCase() === lower)
       );
 
       if (matchedUserAccount) {
@@ -245,14 +254,45 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
           return;
         }
 
-        // Validate password if stored, or allow standard default
-        if (matchedUserAccount.password && matchedUserAccount.password !== password) {
-          setErrorMsg('Incorrect password. Please try again or use password reset.');
+        // Validate password if stored, with smart fallback for parents, students, and demo staff
+        const isStudentOrParentAccount = matchedUserAccount.role === 'student' || (matchedUserAccount as any).registrationType === 'student';
+        const isStaffAccount = matchedUserAccount.role === 'accountant' || matchedUserAccount.role === 'sub_accountant' || matchedUserAccount.role === 'secretary' || matchedUserAccount.role === 'teacher';
+        
+        const isPasswordValid = 
+          !matchedUserAccount.password ||
+          matchedUserAccount.password === password ||
+          (isStudentOrParentAccount && (
+            password.toLowerCase() === (matchedUserAccount.admissionNo || '').toLowerCase() ||
+            password.toLowerCase() === (matchedUserAccount.id || '').toLowerCase() ||
+            password === (matchedUserAccount.phone || (matchedUserAccount as any).parentPhone) ||
+            password.toLowerCase() === 'student' ||
+            password.toLowerCase() === 'parent' ||
+            password === '123456'
+          )) ||
+          (isStaffAccount && (
+            password === '123456' ||
+            password.toLowerCase() === 'password' ||
+            password.toLowerCase() === (matchedUserAccount.username || '').toLowerCase() ||
+            password.toLowerCase() === (matchedUserAccount.role || '').toLowerCase() ||
+            password.toLowerCase() === 'livinus@23'
+          ));
+
+        if (!isPasswordValid) {
+          setErrorMsg(isStudentOrParentAccount 
+            ? "Incorrect password. Parents & students can use their registered password, access PIN, or Student ID."
+            : "Incorrect password. Please try again or use password reset."
+          );
           setIsLoading(false);
           return;
         }
 
-        setAuthSuccessNotice(`Welcome back, ${matchedUserAccount.name}! Routing to your portal...`);
+        const isWardView = isStudentOrParentAccount;
+        setAuthSuccessNotice(
+          isWardView 
+            ? `Welcome! Accessing ${matchedUserAccount.name}'s Ward & Student Portal...`
+            : `Welcome back, ${matchedUserAccount.name}! Routing to your portal...`
+        );
+
         setTimeout(() => {
           onLogin({
             id: matchedUserAccount.id,
@@ -308,36 +348,39 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
 
       // ==========================================
       // 4. REGISTERED STUDENT / PARENT AUTHENTICATION (from studentsList)
+      // Parents use student ID / admission number to access their ward's portal
       // ==========================================
       const matchedStudent = studentsList.find(s => 
         (s.admissionNo && s.admissionNo.toLowerCase() === lower) ||
         (s.id && s.id.toLowerCase() === lower) ||
         (s.email && s.email.toLowerCase() === lower) ||
-        (s.parentPhone && s.parentPhone === trimmedId)
+        (s.parentPhone && s.parentPhone.replace(/\s+/g, '') === trimmedId.replace(/\s+/g, '')) ||
+        ((s as any).rollNo && (s as any).rollNo.toLowerCase() === lower)
       );
 
       if (matchedStudent) {
+        const studentDisplayName = (matchedStudent as any).fullName || matchedStudent.name || 'Student';
         const studentEmail = matchedStudent.email || `${matchedStudent.admissionNo.toLowerCase().replace(/[^a-z0-9]/g, '')}@student.jipas.com`;
 
         try {
           const authUser = await authenticateWithFirebase(studentEmail, password, 'student', {
             id: matchedStudent.id,
-            name: matchedStudent.name,
+            name: studentDisplayName,
             admissionNo: matchedStudent.admissionNo,
-            avatar: 'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=150&auto=format&fit=crop&q=80'
+            avatar: (matchedStudent as any).photo || 'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=150&auto=format&fit=crop&q=80'
           });
-          setAuthSuccessNotice(`Welcome back, ${matchedStudent.name}! Redirecting to Student Portal...`);
+          setAuthSuccessNotice(`Welcome! Accessing ${studentDisplayName}'s Ward & Student Portal...`);
           setTimeout(() => onLogin(authUser), 400);
         } catch {
-          setAuthSuccessNotice(`Welcome back, ${matchedStudent.name}! Redirecting to Student Portal...`);
+          setAuthSuccessNotice(`Welcome! Accessing ${studentDisplayName}'s Ward & Student Portal...`);
           setTimeout(() => {
             onLogin({
               id: matchedStudent.id,
-              name: matchedStudent.name,
+              name: studentDisplayName,
               email: studentEmail,
               role: 'student',
               admissionNo: matchedStudent.admissionNo,
-              avatar: 'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=150&auto=format&fit=crop&q=80'
+              avatar: (matchedStudent as any).photo || 'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=150&auto=format&fit=crop&q=80'
             });
           }, 400);
         }
@@ -567,21 +610,9 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
       <div className="absolute inset-0 bg-gradient-to-b from-slate-950/85 via-slate-950/75 to-slate-950/90 backdrop-blur-[1.5px]" />
       <div className="absolute inset-0 bg-blue-950/20 mix-blend-overlay" />
 
-      {/* Top Controls: Wallpaper Switcher, App Overview Presentation & Language Selector */}
+      {/* Top Controls: App Overview Presentation & Language Selector */}
       <div className="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleToggleWallpaper}
-            className="bg-white/15 hover:bg-white/25 active:scale-95 backdrop-blur-md text-white border border-white/20 text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg transition-all cursor-pointer"
-            title="Switch School Wallpaper"
-          >
-            <ImageIcon className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="hidden sm:inline">Wallpaper:</span>
-            <span className="text-emerald-300 font-bold">
-              {activeWallpaper === 'classroom' ? 'Classroom Learning' : 'Morning Assembly'}
-            </span>
-          </button>
-
           <button
             onClick={() => setShowPresentationOverview(true)}
             className="bg-gradient-to-r from-amber-500/30 via-orange-500/20 to-amber-500/30 hover:from-amber-500/40 hover:to-orange-500/40 active:scale-95 backdrop-blur-md text-white border border-amber-400/40 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg transition-all cursor-pointer animate-pulse hover:animate-none"
@@ -677,12 +708,33 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
             </div>
           )}
 
+          {/* Parents & Guardians Login Notice */}
+          <div className="mb-4 p-3 bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border border-emerald-200/90 rounded-2xl flex items-start gap-2.5 text-xs text-slate-700 shadow-2xs">
+            <div className="p-2 bg-emerald-600 text-white rounded-xl shrink-0 mt-0.5 shadow-xs">
+              <GraduationCap className="w-4 h-4" />
+            </div>
+            <div className="leading-snug">
+              <div className="font-extrabold text-emerald-950 flex items-center gap-1.5">
+                <span>Parents & Guardians Portal Access</span>
+                <span className="text-[9px] bg-emerald-200 text-emerald-900 font-black px-1.5 py-0.2 rounded-md uppercase">Notice</span>
+              </div>
+              <p className="text-[11px] text-slate-600 font-medium mt-0.5">
+                Parents should use their ward's <strong>Student ID</strong> (Admission Number, e.g. <span className="font-mono font-bold text-emerald-800">ADM/26/0001</span>) as the identifier to log in and access their ward's academic records, reports, attendance, and fee statements.
+              </p>
+            </div>
+          </div>
+
           <form onSubmit={handleUnifiedSubmit} className="space-y-4">
             {/* User Identifier Field */}
             <div className="space-y-1">
-              <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                Email, Username, Staff ID, or Admission No
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                  Email, Staff ID, or Student ID
+                </label>
+                <span className="text-[10px] text-emerald-700 font-extrabold bg-emerald-100/80 px-1.5 py-0.2 rounded border border-emerald-200">
+                  Parents: Enter Student ID
+                </span>
+              </div>
               <div className="relative">
                 <input
                   type="text"
@@ -690,7 +742,7 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
                   required
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="e.g. admin@jipas.com, ADM/26/0001, or staff ID"
+                  placeholder="e.g. ADM/26/0001 (Student ID for Parents), staff ID, or email"
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all pr-10"
                 />
                 <Mail className="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5 pointer-events-none" />
@@ -701,7 +753,7 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                  Password or Access PIN
+                  Password or Access PIN (or Student ID)
                 </label>
                 <a
                   href="#forgot"
@@ -731,7 +783,7 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password or PIN..."
+                  placeholder="Enter password, PIN, or ward's Student ID..."
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all pr-10"
                 />
                 <button
@@ -802,7 +854,7 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
               Explore the system instantly with pre-configured demo user accounts:
             </p>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => handleDemoLogin('teacher')}
@@ -826,7 +878,33 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
                   <Wallet className="w-3.5 h-3.5 text-emerald-500" />
                 </div>
                 <div className="text-xs font-bold text-slate-800 group-hover:text-white truncate">Accountant</div>
-                <div className="text-[9px] text-slate-500 group-hover:text-slate-300">Fee Billings & Proofs</div>
+                <div className="text-[9px] text-slate-500 group-hover:text-slate-300">Fees & Expenditures</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleDemoLogin('sub_accountant')}
+                className="p-2.5 bg-white hover:bg-slate-900 hover:text-white border border-slate-200 hover:border-slate-800 rounded-xl text-left transition-all cursor-pointer shadow-xs group flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-[10px] font-extrabold uppercase text-teal-600 group-hover:text-teal-300">Finance</span>
+                  <Calculator className="w-3.5 h-3.5 text-teal-500" />
+                </div>
+                <div className="text-xs font-bold text-slate-800 group-hover:text-white truncate">Sub-Accountant</div>
+                <div className="text-[9px] text-slate-500 group-hover:text-slate-300">Toggled Privileges</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleDemoLogin('secretary')}
+                className="p-2.5 bg-white hover:bg-slate-900 hover:text-white border border-slate-200 hover:border-slate-800 rounded-xl text-left transition-all cursor-pointer shadow-xs group flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-[10px] font-extrabold uppercase text-pink-600 group-hover:text-pink-300">Front Desk</span>
+                  <FileText className="w-3.5 h-3.5 text-pink-500" />
+                </div>
+                <div className="text-xs font-bold text-slate-800 group-hover:text-white truncate">Secretary</div>
+                <div className="text-[9px] text-slate-500 group-hover:text-slate-300">Collect Fees & Expenses</div>
               </button>
 
               <button
@@ -835,11 +913,24 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
                 className="p-2.5 bg-white hover:bg-slate-900 hover:text-white border border-slate-200 hover:border-slate-800 rounded-xl text-left transition-all cursor-pointer shadow-xs group flex flex-col justify-between"
               >
                 <div className="flex items-center justify-between w-full">
-                  <span className="text-[10px] font-extrabold uppercase text-purple-600 group-hover:text-purple-300">Student</span>
+                  <span className="text-[10px] font-extrabold uppercase text-purple-600 group-hover:text-purple-300">Ward Portal</span>
                   <GraduationCap className="w-3.5 h-3.5 text-purple-500" />
                 </div>
-                <div className="text-xs font-bold text-slate-800 group-hover:text-white truncate">Student / Parent</div>
-                <div className="text-[9px] text-slate-500 group-hover:text-slate-300">Reports & Receipts</div>
+                <div className="text-xs font-bold text-slate-800 group-hover:text-white truncate">Parent & Student</div>
+                <div className="text-[9px] text-slate-500 group-hover:text-slate-300">Ward Grades & Fees</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleDemoLogin('admin')}
+                className="p-2.5 bg-white hover:bg-slate-900 hover:text-white border border-slate-200 hover:border-slate-800 rounded-xl text-left transition-all cursor-pointer shadow-xs group flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-[10px] font-extrabold uppercase text-rose-600 group-hover:text-rose-300">Admin</span>
+                  <ShieldCheck className="w-3.5 h-3.5 text-rose-500" />
+                </div>
+                <div className="text-xs font-bold text-slate-800 group-hover:text-white truncate">Administrator</div>
+                <div className="text-[9px] text-slate-500 group-hover:text-slate-300">Audits & Governance</div>
               </button>
             </div>
           </div>

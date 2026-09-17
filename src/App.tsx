@@ -44,11 +44,12 @@ import LoginScreen from './components/LoginScreen';
 import AdminPortal from './components/AdminPortal';
 import TeacherPortal from './components/TeacherPortal';
 import AccountantPortal from './components/AccountantPortal';
+import SecretaryPortal from './components/SecretaryPortal';
 import StudentPortal from './components/StudentPortal';
 import JIPASLogo from './components/common/JIPASLogo';
 import LanguageSwitcher from './components/common/LanguageSwitcher';
 import { useI18n } from './i18n/I18nContext';
-import { LogOut, UserCheck, ShieldCheck, Shield, Calculator, BookOpen, UserCog, Database } from 'lucide-react';
+import { LogOut, UserCheck, ShieldCheck, Shield, Calculator, BookOpen, UserCog, Database, FileText } from 'lucide-react';
 import { 
   seedInitialDatabase, 
   subscribeStudents, 
@@ -908,9 +909,11 @@ export default function App() {
               {currentUser.role === 'sub_admin' && <Shield className="w-4 h-4 text-amber-400" />}
               {currentUser.role === 'teacher' && <UserCheck className="w-4 h-4 text-emerald-400" />}
               {currentUser.role === 'accountant' && <Calculator className="w-4 h-4 text-cyan-400" />}
+              {currentUser.role === 'sub_accountant' && <Calculator className="w-4 h-4 text-teal-400" />}
+              {currentUser.role === 'secretary' && <FileText className="w-4 h-4 text-pink-400" />}
               {currentUser.role === 'student' && <BookOpen className="w-4 h-4 text-indigo-400" />}
               {currentUser.role === 'clerk' && <UserCog className="w-4 h-4 text-purple-400" />}
-              <span className="capitalize">{t('app.role', 'Rôle')}: {t(`app.role.${currentUser.role}`, currentUser.role === 'admin' ? 'Administrateur' : currentUser.role)}</span>
+              <span className="capitalize">{t('app.role', 'Rôle')}: {t(`app.role.${currentUser.role}`, currentUser.role === 'admin' ? 'Administrateur' : currentUser.role.replace('_', ' '))}</span>
             </div>
 
             {/* User Profile */}
@@ -1026,8 +1029,9 @@ export default function App() {
               />
             )}
 
-            {currentUser.role === 'accountant' && (
+            {(currentUser.role === 'accountant' || currentUser.role === 'sub_accountant') && (
               <AccountantPortal
+                currentUser={currentUser}
                 bills={bills}
                 payments={payments}
                 students={students}
@@ -1037,6 +1041,20 @@ export default function App() {
                   setBills(updatedBills);
                   saveStoredBills(updatedBills);
                 }}
+                onLogout={handleLogout}
+              />
+            )}
+
+            {currentUser.role === 'secretary' && (
+              <SecretaryPortal
+                secretary={currentUser}
+                students={students}
+                bills={bills}
+                payments={payments}
+                calendarEvents={calendarEvents}
+                notifications={notifications}
+                onAddPayment={handleAddPayment}
+                onAddNotification={handleAddNotification}
                 onLogout={handleLogout}
               />
             )}

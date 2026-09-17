@@ -319,6 +319,9 @@ export default function StudentPortal({
 
           <div>
             <div className="flex flex-wrap items-center gap-2 mb-1.5">
+              <span className="bg-purple-500/30 border border-purple-400/40 text-purple-200 text-xs font-extrabold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                Ward & Student Portal
+              </span>
               <span className="bg-emerald-500/30 border border-emerald-400/40 text-emerald-100 text-xs font-bold px-2.5 py-0.5 rounded-full font-mono">
                 {student.admissionNo}
               </span>
@@ -334,6 +337,11 @@ export default function StudentPortal({
             </h1>
             <p className="text-emerald-100 text-xs sm:text-sm mt-1">
               Department: <span className="font-semibold text-white">{student.department}</span> • House: <span className="font-bold underline text-amber-200">{student.house} House</span>
+              {student.parentName && (
+                <span className="block sm:inline sm:ml-2 text-emerald-200/90 font-medium">
+                  • Parent/Guardian: <strong className="text-white">{student.parentName}</strong>
+                </span>
+              )}
             </p>
           </div>
         </div>

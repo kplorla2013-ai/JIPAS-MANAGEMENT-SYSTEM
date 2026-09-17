@@ -35,6 +35,7 @@ interface AppPresentationOverviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectRole?: (role: 'admin' | 'teacher' | 'student' | 'accountant') => void;
+  initialSlideIndex?: number;
 }
 
 interface Slide {
@@ -278,12 +279,19 @@ const SLIDES: Slide[] = [
 export const AppPresentationOverviewModal: React.FC<AppPresentationOverviewModalProps> = ({
   isOpen,
   onClose,
-  onSelectRole
+  onSelectRole,
+  initialSlideIndex = 0
 }) => {
-  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(initialSlideIndex);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [presentationViewMode, setPresentationViewMode] = useState<'slides' | 'grid'>('slides');
+
+  useEffect(() => {
+    if (isOpen && initialSlideIndex !== undefined) {
+      setCurrentSlideIndex(Math.min(Math.max(0, initialSlideIndex), SLIDES.length - 1));
+    }
+  }, [isOpen, initialSlideIndex]);
 
   const currentSlide = SLIDES[currentSlideIndex];
 
