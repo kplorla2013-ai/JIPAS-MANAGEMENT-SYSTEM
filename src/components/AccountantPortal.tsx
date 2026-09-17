@@ -13,6 +13,7 @@ import PayrollManager from './common/PayrollManager';
 import ExpenseManager from './common/ExpenseManager';
 import BankDepositManager from './common/BankDepositManager';
 import FinancialDataImporter from './common/FinancialDataImporter';
+import DepartmentalFinancialSummary from './common/DepartmentalFinancialSummary';
 import { runDailyFeeAudit, isDailyAuditDueToday, getStoredAuditSummary, getFormattedTimestamp } from '../services/feeAuditService';
 import { 
   getStoredSecretarySummaries, 
@@ -49,10 +50,11 @@ export const VALID_ACCOUNTANT_TABS = new Set<string>([
   'expenses',
   'secretary-records',
   'payroll',
-  'bank-deposits'
+  'bank-deposits',
+  'dept-financial-summary'
 ]);
 
-export type AccountantTab = 'collections' | 'bills' | 'new-payment' | 'fee-settings' | 'overdue-alerts' | 'expenses' | 'secretary-records' | 'payroll' | 'bank-deposits';
+export type AccountantTab = 'collections' | 'bills' | 'new-payment' | 'fee-settings' | 'overdue-alerts' | 'expenses' | 'secretary-records' | 'payroll' | 'bank-deposits' | 'dept-financial-summary';
 
 export const getInitialAccountantTab = (): AccountantTab => {
   if (typeof window !== 'undefined') {
@@ -88,6 +90,7 @@ export default function AccountantPortal({
   onAddNotification
 }: AccountantPortalProps) {
   const [activeTab, setActiveTab] = useState<AccountantTab>(() => getInitialAccountantTab());
+  const [expenses] = useState(() => getStoredExpenses());
 
   // Department & Class level selection for Fee Payment
   const [paymentDept, setPaymentDept] = useState<string>('All');
@@ -2188,6 +2191,16 @@ export default function AccountantPortal({
         <BankDepositManager
           userRole={currentUser?.role === 'sub_accountant' ? 'sub_accountant' : 'accountant'}
           userName={currentUser?.name || 'Accountant'}
+        />
+      )}
+
+      {/* 9. DEPARTMENTAL FINANCIAL SUMMARY TAB */}
+      {activeTab === 'dept-financial-summary' && (
+        <DepartmentalFinancialSummary
+          students={students}
+          bills={bills}
+          payments={payments}
+          expenses={expenses}
         />
       )}
         </motion.div>

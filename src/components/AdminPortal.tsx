@@ -20,6 +20,8 @@ import BackupRecoveryManager from './admin/BackupRecoveryManager';
 import SubAccountantRoleManager from './admin/SubAccountantRoleManager';
 import FinancialAuditManager from './admin/FinancialAuditManager';
 import UserPortalReviewManager from './admin/UserPortalReviewManager';
+import SecurityAuditLogsManager from './admin/SecurityAuditLogsManager';
+import DepartmentalFinancialSummary from './common/DepartmentalFinancialSummary';
 import ExpenseManager from './common/ExpenseManager';
 import QuickActionSpeedDial from './common/QuickActionSpeedDial';
 import JIPASLogo from './common/JIPASLogo';
@@ -32,6 +34,7 @@ import {
   INITIAL_CLASSES, INITIAL_HOUSES, INITIAL_SUBJECTS 
 } from '../data/setupData';
 import { checkHasDemoData, clearDemoData } from '../services/dbService';
+import { getStoredExpenses } from '../services/storageService';
 import { 
   LayoutDashboard, Users, UserCheck, CreditCard, Award, Calendar, Bell, 
   FileText, Shield, Plus, Search, CheckCircle, AlertCircle, ArrowUpRight, DollarSign, BookOpen,
@@ -98,7 +101,7 @@ const VALID_ADMIN_MODULES = new Set([
   'system_users_roles', 'users_roles', 'system_student_portal_ctrl', 'student_portal_control',
   'system_manage_logins', 'manage_portal_logins',
   'sub_accountant_roles', 'accountant_roles', 'sub_accountant_privileges',
-  'users_portal_review', 'portal_review', 'users_review',
+  'users_portal_review', 'portal_review', 'users_review', 'security_audit', 'security_audit_logs',
   // Teacher
   'teacher_profile', 'teachers', 'teacher_id_cards', 'teacher_assign',
   'teacher_attendance', 'teacher_attendance_report', 'teacher_attendance_stats',
@@ -114,7 +117,7 @@ const VALID_ADMIN_MODULES = new Set([
   'fee_options', 'fees', 'fee_bill_students', 'bills', 'fee_generate_sheets',
   'fee_collection', 'payments', 'fee_payment_history', 'fee_payment_stats',
   'fee_income_expenses', 'income_expenses', 'fee_overdue_alerts', 'fee_audit_activity', 'audit_activity', 'payment_settings',
-  'financial_audit', 'financial_records_audit', 'audit_financial',
+  'financial_audit', 'financial_records_audit', 'audit_financial', 'departmental_financial_summary', 'dept_financial_summary',
   'institutional_expenses', 'school_expenses', 'expenses',
   'secretary_handover', 'secretary_records',
   // Payroll & Remuneration
@@ -167,6 +170,7 @@ const ADMIN_NAV_GROUPS = [
       { id: 'system_account_requests', label: 'Account Requests', icon: UserCheck },
       { id: 'system_users_roles', label: 'Users & Roles', icon: UserCog },
       { id: 'sub_accountant_roles', label: 'Sub-Accountant Privileges & Roles', icon: UserCog },
+      { id: 'security_audit', label: 'Security & Role Audit Logs', icon: ShieldCheck },
       { id: 'users_portal_review', label: 'Users Portal Review & Governance', icon: Eye },
       { id: 'system_student_portal_ctrl', label: 'Student Portal Control', icon: GraduationCap },
       { id: 'system_manage_logins', label: 'Manage Portal Logins', icon: KeyRound },
@@ -220,6 +224,7 @@ const ADMIN_NAV_GROUPS = [
     icon: DollarSign,
     items: [
       { id: 'financial_audit', label: 'Financial Records Audit', icon: ShieldCheck },
+      { id: 'departmental_financial_summary', label: 'Departmental Financial Summary', icon: Building2 },
       { id: 'institutional_expenses', label: 'Institutional Expenses', icon: Wallet },
       { id: 'payment_settings', label: 'Payment Channels & Proofs', icon: CreditCard },
       { id: 'fee_options', label: 'Fee Settings & Tariffs', icon: CreditCard },
@@ -330,6 +335,8 @@ export default function AdminPortal({
     if (saved && VALID_ADMIN_MODULES.has(saved)) return saved;
     return 'dashboard';
   });
+
+  const [expenses] = useState(() => getStoredExpenses());
 
   // Collapsible Sidebar State Management
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => {
@@ -2032,6 +2039,21 @@ export default function AdminPortal({
             bills={bills}
             payments={payments}
             onClose={() => handleNavigate('dashboard')}
+          />
+        )}
+
+        {/* 7A1. SECURITY AUDIT LOGS MANAGER MODULE */}
+        {(activeModule === 'security_audit' || activeModule === 'security_audit_logs') && (
+          <SecurityAuditLogsManager />
+        )}
+
+        {/* 7A2. DEPARTMENTAL FINANCIAL SUMMARY MODULE */}
+        {(activeModule === 'departmental_financial_summary' || activeModule === 'dept_financial_summary') && (
+          <DepartmentalFinancialSummary
+            students={students}
+            bills={bills}
+            payments={payments}
+            expenses={expenses}
           />
         )}
 

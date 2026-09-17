@@ -25,7 +25,8 @@ import {
   SecretaryDailySummary,
   FinancialAuditReport,
   AccountantPrivilegesConfig,
-  BankDepositRecord
+  BankDepositRecord,
+  SecurityAuditLog
 } from '../types';
 import { 
   INITIAL_STUDENTS, 
@@ -75,6 +76,7 @@ export const STORAGE_KEYS = {
   SECRETARY_SUMMARIES: 'jipas_secretary_daily_summaries',
   FINANCIAL_AUDITS: 'jipas_financial_audit_reports',
   BANK_DEPOSITS: 'jipas_bank_deposits_records',
+  SECURITY_AUDIT_LOGS: 'jipas_security_audit_logs',
   DEMO_CLEARED: 'jipas_demo_data_cleared',
   THEME_PALETTE: 'jipas_global_theme_palette'
 } as const;
@@ -950,5 +952,58 @@ export function getStoredAccountantPrivileges(): AccountantPrivilegesConfig {
 
 export function saveStoredAccountantPrivileges(config: AccountantPrivilegesConfig): void {
   writeStorage(STORAGE_KEYS.ACCOUNTANT_PRIVILEGES, config);
+}
+
+export const INITIAL_SECURITY_AUDIT_LOGS: SecurityAuditLog[] = [
+  {
+    id: 'SEC-LOG-001',
+    timestamp: new Date(Date.now() - 3600000 * 4).toLocaleString('sv').replace(' ', ' '),
+    performedBy: 'Super Administrator',
+    performedByRole: 'admin',
+    targetUser: 'Kofi Mensah (Sub-Accountant)',
+    targetUserRole: 'sub_accountant',
+    actionType: 'Privilege Modification',
+    details: 'Granted privilege: canRunPayroll, canApproveExpenses. Revoked: canVoidPayments'
+  },
+  {
+    id: 'SEC-LOG-002',
+    timestamp: new Date(Date.now() - 3600000 * 24).toLocaleString('sv').replace(' ', ' '),
+    performedBy: 'Super Administrator',
+    performedByRole: 'admin',
+    targetUser: 'Ama Serwaa (Secretary)',
+    targetUserRole: 'secretary',
+    actionType: 'Access Level Change',
+    details: 'Updated assigned modules: Student Enrollment, Fee Receipts, Attendance'
+  },
+  {
+    id: 'SEC-LOG-003',
+    timestamp: new Date(Date.now() - 3600000 * 48).toLocaleString('sv').replace(' ', ' '),
+    performedBy: 'Headmaster / Admin',
+    performedByRole: 'admin',
+    targetUser: 'Bernard Ofori (Sub-Admin)',
+    targetUserRole: 'sub_admin',
+    actionType: 'Role Update',
+    details: 'Assigned system sub_admin role with elevated academic publishing rights'
+  }
+];
+
+export function getStoredSecurityAuditLogs(): SecurityAuditLog[] {
+  return readStorage<SecurityAuditLog[]>(STORAGE_KEYS.SECURITY_AUDIT_LOGS, INITIAL_SECURITY_AUDIT_LOGS);
+}
+
+export function saveStoredSecurityAuditLogs(logs: SecurityAuditLog[]): void {
+  writeStorage(STORAGE_KEYS.SECURITY_AUDIT_LOGS, logs);
+}
+
+export function recordSecurityAuditLog(log: Omit<SecurityAuditLog, 'id' | 'timestamp'>): SecurityAuditLog {
+  const currentLogs = getStoredSecurityAuditLogs();
+  const newEntry: SecurityAuditLog = {
+    ...log,
+    id: `SEC-LOG-${Date.now().toString().slice(-6)}`,
+    timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19)
+  };
+  const updatedLogs = [newEntry, ...currentLogs];
+  saveStoredSecurityAuditLogs(updatedLogs);
+  return newEntry;
 }
 

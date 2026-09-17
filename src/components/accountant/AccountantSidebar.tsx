@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { 
   FileText, DollarSign, Plus, Settings, AlertTriangle, 
   Pin, PinOff, ChevronRight, Menu, X, CheckCircle2, 
-  TrendingUp, Sparkles, User, ShieldCheck, Wallet, Receipt, Layers, Building
+  TrendingUp, Sparkles, User, ShieldCheck, Wallet, Receipt, Layers, Building, Building2
 } from 'lucide-react';
 import JIPASLogo from '../common/JIPASLogo';
 
-export type AccountantTabType = 'collections' | 'bills' | 'new-payment' | 'fee-settings' | 'overdue-alerts' | 'payroll' | 'expenses' | 'secretary-records' | 'bank-deposits';
+export type AccountantTabType = 'collections' | 'bills' | 'new-payment' | 'fee-settings' | 'overdue-alerts' | 'payroll' | 'expenses' | 'secretary-records' | 'bank-deposits' | 'dept-financial-summary';
 
 interface AccountantSidebarProps {
   activeTab: AccountantTabType;
@@ -135,6 +135,14 @@ export default function AccountantSidebar({
       icon: Wallet,
       badge: 'Bursary',
       badgeColor: 'bg-purple-100 text-purple-800'
+    },
+    {
+      id: 'dept-financial-summary',
+      label: 'Dept Financial Summary',
+      sublabel: 'Income & Expense Breakdown',
+      icon: Building2,
+      badge: 'Summary',
+      badgeColor: 'bg-indigo-100 text-indigo-800'
     }
   ];
 

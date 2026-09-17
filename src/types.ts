@@ -255,6 +255,17 @@ export interface PaymentRecord {
   term?: string;
 }
 
+export interface SecurityAuditLog {
+  id: string;
+  timestamp: string;
+  performedBy: string;
+  performedByRole: string;
+  targetUser: string;
+  targetUserRole: string;
+  actionType: 'Role Update' | 'Privilege Modification' | 'Account Deactivation' | 'Password Reset' | 'Access Level Change' | string;
+  details: string;
+}
+
 export interface CalendarEvent {
   id: string;
   title: string;

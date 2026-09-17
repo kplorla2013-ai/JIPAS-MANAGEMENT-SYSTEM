@@ -322,6 +322,140 @@ export default function StudentPortal({
     window.print();
   };
 
+  const handlePrintStatementPDF = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>JIPAS Fee Payment & Arrears Statement - ${student.fullName}</title>
+          <style>
+            @page { size: A4; margin: 15mm; }
+            body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #0f172a; padding: 20px; margin: 0; background: #fff; }
+            .header-table { width: 100%; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px; }
+            .school-title { font-size: 20px; font-weight: 900; color: #1e1b4b; text-transform: uppercase; letter-spacing: -0.5px; }
+            .doc-sub { font-size: 12px; font-weight: 800; color: #0284c7; text-transform: uppercase; margin-top: 4px; }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; font-size: 11px; }
+            .info-box { background: #f8fafc; border: 1px solid #cbd5e1; padding: 12px 15px; border-radius: 10px; }
+            .info-box strong { color: #0f172a; display: block; margin-bottom: 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+            .summary-card { background: ${balanceDue > 0 ? '#fef2f2' : '#f0fdf4'}; border: 2px solid ${balanceDue > 0 ? '#dc2626' : '#16a34a'}; padding: 18px; border-radius: 12px; margin-bottom: 24px; text-align: center; }
+            .summary-title { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; color: ${balanceDue > 0 ? '#991b1b' : '#14532d'}; }
+            .summary-amount { font-size: 28px; font-weight: 900; font-family: monospace; color: ${balanceDue > 0 ? '#b91c1c' : '#15803d'}; margin: 6px 0; }
+            .section-title { font-size: 12px; font-weight: 900; text-transform: uppercase; color: #0f172a; margin-top: 20px; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+            table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px; }
+            th { background: #0f172a; color: white; text-align: left; padding: 8px 12px; font-size: 10px; text-transform: uppercase; }
+            td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; }
+            .amount { font-family: monospace; font-weight: bold; text-align: right; }
+            .footer-grid { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 40px; padding-top: 20px; border-top: 1px dashed #cbd5e1; font-size: 10px; color: #64748b; }
+            .stamp-area { border: 2px dashed #94a3b8; width: 160px; height: 70px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 900; color: #64748b; text-align: center; border-radius: 8px; text-transform: uppercase; }
+          </style>
+        </head>
+        <body>
+          <table class="header-table">
+            <tr>
+              <td>
+                <div class="school-title">JIPAS EDUCATIONAL COMPLEX</div>
+                <div class="doc-sub">OFFICIAL STUDENT FEE PAYMENT & REMAINING ARREARS STATEMENT</div>
+                <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Accra, Ghana • Official Financial Control Desk</div>
+              </td>
+              <td style="text-align: right; font-size: 11px; color: #475569;">
+                <div><strong>Statement Date:</strong> ${new Date().toLocaleDateString()}</div>
+                <div><strong>Academic Year:</strong> ${studentBill?.academicYear || '2025/2026'}</div>
+                <div><strong>Term:</strong> ${studentBill?.term || 'Current Term'}</div>
+              </td>
+            </tr>
+          </table>
+
+          <div class="info-grid">
+            <div class="info-box">
+              <strong>STUDENT PARTICULARS</strong>
+              Name: <strong>${student.fullName}</strong><br/>
+              Admission No: <strong>${student.admissionNo}</strong><br/>
+              Class: <strong>${student.className}</strong><br/>
+              Department: <strong>${student.department || 'General Department'}</strong>
+            </div>
+            <div class="info-box">
+              <strong>PARENT / GUARDIAN CONTACT</strong>
+              Guardian Name: <strong>${student.parentName || 'N/A'}</strong><br/>
+              Contact Phone: <strong>${student.parentPhone || 'N/A'}</strong><br/>
+              House / Warden: <strong>${student.house} House Warden</strong>
+            </div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-title">OUTSTANDING REMAINING ARREARS BALANCE</div>
+            <div class="summary-amount">${balanceDue.toFixed(2)} CFA</div>
+            <div style="font-size: 11px; color: #475569; font-weight: 600;">
+              Total Billed: <strong>${totalPayable.toFixed(2)} CFA</strong> &bull; Total Payments Received: <strong>${totalPaid.toFixed(2)} CFA</strong>
+            </div>
+          </div>
+
+          <div class="section-title">1. Approved Fee Breakdown & Charges</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Item Description</th>
+                <th style="text-align: right;">Amount (CFA)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(studentBill?.items || []).map(it => `
+                <tr>
+                  <td>${it.name || (it as any).description || 'Fee Item'}</td>
+                  <td class="amount">${it.amount.toFixed(2)} CFA</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="section-title">2. Payments Logged & Verified Receipts</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Receipt No</th>
+                <th>Date Paid</th>
+                <th>Description</th>
+                <th>Payment Channel</th>
+                <th style="text-align: right;">Amount Paid (CFA)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${studentPayments.map(p => `
+                <tr>
+                  <td style="font-family: monospace; font-weight: bold;">${p.receiptNo}</td>
+                  <td>${p.date}</td>
+                  <td>${p.paidAs || 'Tuition Fee Payment'}</td>
+                  <td>${p.paymentMethod || 'Cash / Bank / MoMo'}</td>
+                  <td class="amount">${p.paid.toFixed(2)} CFA</td>
+                </tr>
+              `).join('')}
+              ${studentPayments.length === 0 ? `
+                <tr>
+                  <td colspan="5" style="text-align: center; color: #94a3b8; padding: 15px;">No recorded fee payment receipts found.</td>
+                </tr>
+              ` : ''}
+            </tbody>
+          </table>
+
+          <div class="footer-grid">
+            <div>
+              <p><strong>Verification Notice:</strong> This statement is generated by JIPAS Financial System.</p>
+              <p>For inquiries, contact Bursar Desk at accounts@jipas.edu.gh or 0249755593.</p>
+            </div>
+            <div class="stamp-area">
+              OFFICIAL BURSAR<br/>STAMP & SIGNATURE
+            </div>
+          </div>
+
+          <script>window.onload = function() { window.print(); window.close(); }</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-end mb-2">
@@ -1722,10 +1856,10 @@ export default function StudentPortal({
 
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 print:hidden">
               <button
-                onClick={handlePrint}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
+                onClick={handlePrintStatementPDF}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-xs flex items-center gap-1.5 cursor-pointer"
               >
-                <Printer className="w-3.5 h-3.5" /> Print Statement
+                <Printer className="w-3.5 h-3.5" /> Generate & Print PDF Statement
               </button>
               <button
                 onClick={() => setShowPrintStatementModal(false)}
