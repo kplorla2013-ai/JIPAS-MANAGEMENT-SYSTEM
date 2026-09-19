@@ -1,20 +1,21 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "JIPAS School Management Database Blueprint",
-  "description": "Firestore database schema and security blueprint for JIPAS School Management System",
+  "description": "Authoritative Firestore database schema and security blueprint for JIPAS School Management System",
   "entities": {
     "users": {
       "title": "Users",
-      "description": "System users including Admins, Teachers, Accountants, and Students",
+      "description": "System users including Admins, Teachers, Accountants, Secretaries, and Students",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
         "email": { "type": "string" },
-        "role": { "type": "string", "enum": ["admin", "teacher", "accountant", "student"] },
+        "role": { "type": "string", "enum": ["admin", "super_admin", "headmaster", "teacher", "accountant", "sub_accountant", "secretary", "hr", "student", "parent", "clerk", "sub_admin"] },
         "classAssigned": { "type": "string" },
         "admissionNo": { "type": "string" },
         "avatar": { "type": "string" },
+        "allowedModules": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" }
       },
@@ -22,18 +23,19 @@
     },
     "students": {
       "title": "Students",
-      "description": "Enrolled student records",
+      "description": "Enrolled student demographic and admission records",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "fullName": { "type": "string" },
         "admissionNo": { "type": "string" },
         "className": { "type": "string" },
-        "gender": { "type": "string" },
-        "dateOfBirth": { "type": "string" },
+        "gender": { "type": "string", "enum": ["Male", "Female"] },
+        "dob": { "type": "string" },
         "parentName": { "type": "string" },
         "parentPhone": { "type": "string" },
         "house": { "type": "string" },
+        "status": { "type": "string", "enum": ["Active", "Inactive", "Pending"] },
         "photo": { "type": "string" },
         "createdAt": { "type": "string" }
       },
@@ -41,7 +43,7 @@
     },
     "teachers": {
       "title": "Teachers",
-      "description": "Faculty and staff profiles",
+      "description": "Faculty and staff academic profiles",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -50,6 +52,7 @@
         "phone": { "type": "string" },
         "designation": { "type": "string" },
         "rank": { "type": "string" },
+        "department": { "type": "string" },
         "classesTaught": { "type": "array", "items": { "type": "string" } },
         "subjectsTaught": { "type": "array", "items": { "type": "string" } },
         "photo": { "type": "string" }
@@ -58,7 +61,7 @@
     },
     "reports": {
       "title": "TermReports",
-      "description": "Student terminal assessment reports",
+      "description": "Student terminal assessment reports and GPA rankings",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -84,7 +87,7 @@
     },
     "transactions": {
       "title": "FeeTransactions",
-      "description": "Tuition and fee payment transactions",
+      "description": "Tuition and fee payment transactions with receipt metadata",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -96,20 +99,137 @@
         "type": { "type": "string" },
         "paymentMethod": { "type": "string" },
         "reference": { "type": "string" },
+        "receiptNo": { "type": "string" },
         "date": { "type": "string" },
         "status": { "type": "string" }
       },
       "required": ["studentName", "amount", "date", "status"]
     },
-    "settings": {
-      "title": "SystemSettings",
-      "description": "Institution branding, crest logo, and system parameters",
+    "bills": {
+      "title": "StudentBills",
+      "description": "Tuition bills and fee breakdown for each student",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "admissionNo": { "type": "string" },
+        "className": { "type": "string" },
+        "academicYear": { "type": "string" },
+        "term": { "type": "string" },
+        "totalBilled": { "type": "number" },
+        "amountPaid": { "type": "number" },
+        "balance": { "type": "number" },
+        "status": { "type": "string", "enum": ["Paid", "Partially Paid", "Unpaid"] }
+      },
+      "required": ["studentId", "totalBilled"]
+    },
+    "expenses": {
+      "title": "SchoolExpenses",
+      "description": "Disbursement records and institutional operational expenses",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "amount": { "type": "number" },
+        "category": { "type": "string" },
+        "department": { "type": "string" },
+        "date": { "type": "string" },
+        "spentBy": { "type": "string" },
+        "approvedBy": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Disbursed", "Rejected"] },
+        "receiptUrl": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["title", "amount", "date", "status"]
+    },
+    "bankDeposits": {
+      "title": "BankDeposits",
+      "description": "Counter and bank slip deposits of fee collections",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "bankName": { "type": "string" },
+        "accountNumber": { "type": "string" },
+        "amount": { "type": "number" },
+        "bankReceiptNo": { "type": "string" },
+        "date": { "type": "string" },
+        "depositedBy": { "type": "string" },
+        "referenceNo": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["bankName", "amount", "date", "bankReceiptNo"]
+    },
+    "payrollRuns": {
+      "title": "PayrollRuns",
+      "description": "Monthly payroll execution ledger and payslip vouchers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "month": { "type": "string" },
+        "totalStaff": { "type": "number" },
+        "grossTotal": { "type": "number" },
+        "deductionsTotal": { "type": "number" },
+        "netPayout": { "type": "number" },
+        "status": { "type": "string", "enum": ["Draft", "Pending Approval", "Approved", "Paid"] },
+        "paymentDate": { "type": "string" },
+        "payslips": { "type": "array" }
+      },
+      "required": ["month", "grossTotal", "netPayout"]
+    },
+    "staffSalaries": {
+      "title": "StaffSalaries",
+      "description": "Staff salary structures, basic salaries, and allowances",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "staffId": { "type": "string" },
+        "staffName": { "type": "string" },
+        "designation": { "type": "string" },
+        "basicSalary": { "type": "number" },
+        "allowances": { "type": "object" },
+        "bankName": { "type": "string" },
+        "accountNumber": { "type": "string" }
+      },
+      "required": ["staffName", "basicSalary"]
+    },
+    "staffLoans": {
+      "title": "StaffLoans",
+      "description": "Staff salary advances and loan amortization schedules",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "staffId": { "type": "string" },
+        "staffName": { "type": "string" },
+        "principalAmount": { "type": "number" },
+        "monthlyDeduction": { "type": "number" },
+        "remainingBalance": { "type": "number" },
+        "status": { "type": "string", "enum": ["Active", "Completed", "Defaulted"] }
+      },
+      "required": ["staffName", "principalAmount", "monthlyDeduction"]
+    },
+    "securityAuditLogs": {
+      "title": "SecurityAuditLogs",
+      "description": "Immutable security ledger recording authentication, role changes, and overrides",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "performedBy": { "type": "string" },
+        "performedByRole": { "type": "string" },
+        "targetUser": { "type": "string" },
+        "actionType": { "type": "string" },
+        "details": { "type": "string" }
+      },
+      "required": ["timestamp", "performedBy", "actionType", "details"]
+    },
+    "settings": {
+      "title": "SchoolSettings",
+      "description": "School crest branding, contact details, and theme configurations",
+      "type": "object",
+      "properties": {
         "schoolName": { "type": "string" },
         "schoolMotto": { "type": "string" },
-        "schoolLogo": { "type": "string" },
         "phone": { "type": "string" },
         "email": { "type": "string" },
         "address": { "type": "string" },
@@ -119,82 +239,51 @@
     },
     "academicYears": {
       "title": "AcademicYears",
-      "description": "Academic year calendar sessions",
+      "description": "Academic year sessions",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
         "startDate": { "type": "string" },
         "endDate": { "type": "string" },
-        "isActive": { "type": "boolean" }
+        "isCurrent": { "type": "boolean" }
       },
       "required": ["name"]
     },
     "terms": {
       "title": "Terms",
-      "description": "Term parameters and timelines",
+      "description": "Academic school terms and resumption dates",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
         "termNumber": { "type": "number" },
-        "startDate": { "type": "string" },
-        "endDate": { "type": "string" },
-        "daysOpen": { "type": "number" },
-        "isCurrent": { "type": "boolean" },
-        "resumptionDate": { "type": "string" }
-      },
-      "required": ["name"]
-    },
-    "departments": {
-      "title": "Departments",
-      "description": "School departments",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "code": { "type": "string" },
-        "hod": { "type": "string" },
-        "description": { "type": "string" }
+        "academicYear": { "type": "string" },
+        "isCurrent": { "type": "boolean" }
       },
       "required": ["name"]
     },
     "classes": {
       "title": "Classes",
-      "description": "Classrooms and streams",
+      "description": "School classrooms and streams",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
-        "stream": { "type": "string" },
-        "roomNo": { "type": "string" },
-        "classTeacher": { "type": "string" },
+        "department": { "type": "string" },
         "capacity": { "type": "number" }
-      },
-      "required": ["name"]
-    },
-    "houses": {
-      "title": "Houses",
-      "description": "School student houses",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "color": { "type": "string" },
-        "houseMaster": { "type": "string" }
       },
       "required": ["name"]
     },
     "subjects": {
       "title": "Subjects",
-      "description": "Curriculum subjects",
+      "description": "Curriculum subjects taught",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
         "code": { "type": "string" },
-        "department": { "type": "string" },
-        "isCore": { "type": "boolean" }
+        "department": { "type": "string" }
       },
       "required": ["name"]
     }

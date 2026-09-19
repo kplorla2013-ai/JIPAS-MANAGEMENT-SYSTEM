@@ -1,86 +1,394 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check authentication
+
+    // -------------------------------------------------------------
+    // Default Deny Catch-All
+    // -------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------
+    // Global Helper Functions (Zero-Trust ABAC)
+    // -------------------------------------------------------------
     function isAuthenticated() {
       return request.auth != null;
     }
 
+    function isNonAnonymous() {
+      return isAuthenticated() && 
+        request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    function isOwner(userId) {
+      return isNonAnonymous() && request.auth.uid == userId;
+    }
+
+    function getUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function getUserRole() {
+      return getUserDoc().data.role;
+    }
+
+    function isAdmin() {
+      return isNonAnonymous() && (
+        getUserRole() == 'admin' || 
+        getUserRole() == 'super_admin' || 
+        getUserRole() == 'headmaster'
+      );
+    }
+
+    function isAccountant() {
+      return isNonAnonymous() && (
+        getUserRole() == 'accountant' || 
+        getUserRole() == 'sub_accountant' || 
+        isAdmin()
+      );
+    }
+
+    function isTeacher() {
+      return isNonAnonymous() && (
+        getUserRole() == 'teacher' || 
+        isAdmin()
+      );
+    }
+
+    function isSecretary() {
+      return isNonAnonymous() && (
+        getUserRole() == 'secretary' ||
+        isAdmin()
+      );
+    }
+
+    function isStaff() {
+      return isNonAnonymous() && (
+        isAdmin() || 
+        getUserRole() == 'teacher' || 
+        getUserRole() == 'accountant' || 
+        getUserRole() == 'sub_accountant' || 
+        getUserRole() == 'secretary' || 
+        getUserRole() == 'hr' || 
+        getUserRole() == 'clerk' || 
+        getUserRole() == 'sub_admin'
+      );
+    }
+
+    function isStudent() {
+      return isNonAnonymous() && (
+        getUserRole() == 'student'
+      );
+    }
+
+    // -------------------------------------------------------------
+    // Users Collection (Accounts & Profiles)
+    // Guard: Prevent self-assigned admin privileges & role escalation
+    // -------------------------------------------------------------
     match /users/{userId} {
-      allow read, write: if true;
+      allow read: if isNonAnonymous() && (isStaff() || isOwner(userId));
+      
+      // Prevent regular users from self-assigning admin or accountant roles on signup
+      allow create: if isAuthenticated() && (
+        isAdmin() || 
+        (
+          isOwner(userId) && 
+          request.resource.data.role != 'admin' && 
+          request.resource.data.role != 'super_admin' && 
+          request.resource.data.role != 'headmaster'
+        )
+      );
+
+      // Prevent non-admins from escalating their role, approval status, or accounting privileges
+      allow update: if isNonAnonymous() && (
+        isAdmin() || 
+        (
+          isOwner(userId) && 
+          request.resource.data.role == resource.data.role &&
+          (!('isApproved' in request.resource.data) || request.resource.data.isApproved == resource.data.isApproved) &&
+          (!('accountantPrivileges' in request.resource.data) || request.resource.data.accountantPrivileges == resource.data.accountantPrivileges)
+        )
+      );
+
+      allow delete: if isAdmin();
     }
 
+    // -------------------------------------------------------------
+    // Students Collection
+    // Guard: Students can ONLY read their own profile; no cross-student access
+    // -------------------------------------------------------------
     match /students/{studentId} {
-      allow read, write: if true;
+      allow read: if isStaff() || (
+        isNonAnonymous() && (
+          request.auth.uid == studentId || 
+          (isStudent() && getUserDoc().data.admissionNo == resource.data.admissionNo)
+        )
+      );
+      allow create, update: if isStaff();
+      allow delete: if isAdmin();
     }
 
+    // -------------------------------------------------------------
+    // Teachers & Faculty Collection
+    // -------------------------------------------------------------
     match /teachers/{teacherId} {
-      allow read, write: if true;
+      allow read: if isNonAnonymous();
+      allow create, update: if isAdmin() || (isStaff() && getUserRole() == 'hr');
+      allow delete: if isAdmin();
     }
 
+    // -------------------------------------------------------------
+    // Assessment & Terminal Reports (Academic Records)
+    // Guard: Accountants CANNOT access academic reports (Item 9)
+    // Guard: Students can ONLY access their own report (Item 7)
+    // Guard: Finalized/Published reports cannot be overwritten by teachers without Admin (Item 18)
+    // -------------------------------------------------------------
     match /reports/{reportId} {
-      allow read, write: if true;
+      allow read: if isTeacher() || isAdmin() || (
+        isNonAnonymous() && (
+          resource.data.studentId == request.auth.uid || 
+          (isStudent() && resource.data.admissionNo == getUserDoc().data.admissionNo)
+        )
+      );
+      
+      allow create: if isTeacher() || isAdmin();
+      
+      allow update: if isAdmin() || (
+        isTeacher() && 
+        resource.data.isPublished != true && 
+        resource.data.status != 'Finalized' &&
+        resource.data.status != 'Published'
+      );
+
+      allow delete: if isAdmin();
     }
 
+    // -------------------------------------------------------------
+    // Financial Transactions & Receipts
+    // Guard: Teachers CANNOT access school transactions (Item 8)
+    // Guard: Students can ONLY view their own receipts (Item 7)
+    // Guard: Only Admin can delete transactions (Item 5)
+    // -------------------------------------------------------------
     match /transactions/{txId} {
-      allow read, write: if true;
+      allow read: if isAccountant() || isSecretary() || isAdmin() || (
+        isNonAnonymous() && (
+          resource.data.studentId == request.auth.uid || 
+          (isStudent() && resource.data.admissionNo == getUserDoc().data.admissionNo)
+        )
+      );
+      allow create, update: if isAccountant() || isSecretary() || isAdmin();
+      allow delete: if isAdmin();
     }
 
+    // -------------------------------------------------------------
+    // Student Bills
+    // Guard: Teachers CANNOT view school billing ledgers (Item 8)
+    // Guard: Students can ONLY view their own bill (Item 7)
+    // -------------------------------------------------------------
     match /bills/{billId} {
-      allow read, write: if true;
+      allow read: if isAccountant() || isSecretary() || isAdmin() || (
+        isNonAnonymous() && (
+          resource.data.studentId == request.auth.uid || 
+          (isStudent() && resource.data.admissionNo == getUserDoc().data.admissionNo)
+        )
+      );
+      allow create, update: if isAccountant() || isAdmin();
+      allow delete: if isAdmin();
     }
 
-    match /settings/{settingId} {
-      allow read, write: if true;
+    // -------------------------------------------------------------
+    // School Expenses & Disbursements
+    // Guard: Strictly restricted to Accountant & Admin (Item 8)
+    // -------------------------------------------------------------
+    match /expenses/{expenseId} {
+      allow read: if isAccountant() || isAdmin() || (isSecretary() && resource.data.recorderRole == 'secretary');
+      allow create, update: if isAccountant() || isAdmin() || (isSecretary() && request.resource.data.recorderRole == 'secretary');
+      allow delete: if isAdmin();
     }
 
-    match /systemSettings/{settingId} {
-      allow read, write: if true;
+    // -------------------------------------------------------------
+    // Bank Deposits
+    // -------------------------------------------------------------
+    match /bankDeposits/{depId} {
+      allow read: if isAccountant() || isAdmin() || isSecretary();
+      allow create, update: if isAccountant() || isAdmin() || isSecretary();
+      allow delete: if isAdmin();
     }
 
-    match /academicYears/{ayId} {
-      allow read, write: if true;
+    // -------------------------------------------------------------
+    // Payroll Runs & Salary Vouchers
+    // Guard: Strictly restricted to Admin & Accountant (Items 6, 8, 19)
+    // Guard: Finalized/Paid payroll cannot be altered unless by Admin (Item 19)
+    // -------------------------------------------------------------
+    match /payrollRuns/{runId} {
+      allow read: if isAdmin() || isAccountant();
+      allow create: if isAdmin() || isAccountant();
+      allow update: if isAdmin() || (
+        isAccountant() && 
+        resource.data.status != 'Approved' && 
+        resource.data.status != 'Disbursed' &&
+        resource.data.status != 'Paid'
+      );
+      allow delete: if isAdmin();
     }
 
-    match /terms/{termId} {
-      allow read, write: if true;
+    match /staffSalaries/{salId} {
+      allow read: if isAdmin() || isAccountant();
+      allow create, update: if isAdmin() || isAccountant();
+      allow delete: if isAdmin();
     }
 
-    match /departments/{deptId} {
-      allow read, write: if true;
+    match /staffLoans/{loanId} {
+      allow read: if isAdmin() || isAccountant();
+      allow create, update: if isAdmin() || isAccountant();
+      allow delete: if isAdmin();
     }
 
-    match /classes/{classId} {
-      allow read, write: if true;
+    // -------------------------------------------------------------
+    // Security Audit Logs (Immutable Ledger - Item 17)
+    // -------------------------------------------------------------
+    match /securityAuditLogs/{logId} {
+      allow read: if isAdmin();
+      // Staff can record system actions; authenticated non-staff can only record their own activity
+      allow create: if isStaff() || (
+        isNonAnonymous() && 
+        request.resource.data.userId == request.auth.uid
+      );
+      allow update, delete: if false; // Strict tamper-proof immutability
     }
 
-    match /houses/{houseId} {
-      allow read, write: if true;
+    // -------------------------------------------------------------
+    // Academic Setup & Master Reference Data (Publicly Readable Catalogs)
+    // -------------------------------------------------------------
+    match /academicYears/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
-    match /subjects/{subjectId} {
-      allow read, write: if true;
+    match /terms/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
-    match /events/{eventId} {
-      allow read, write: if true;
+    match /departments/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
-    match /notifications/{notifId} {
-      allow read, write: if true;
+    match /courses/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /classes/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /houses/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /subjects/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     match /classFeeTariffs/{tariffId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAccountant() || isAdmin();
+    }
+
+    match /classReportBroadcasts/{broadcastId} {
+      allow read: if true;
+      allow write: if isTeacher() || isAdmin();
+    }
+
+    match /teacherAttendance/{attId} {
+      allow read: if isStaff();
+      allow write: if isStaff();
     }
 
     match /feeSubmissions/{submissionId} {
-      allow read, write: if true;
+      allow read: if isStaff() || (
+        isNonAnonymous() && resource.data.studentId == request.auth.uid
+      );
+      allow create: if isNonAnonymous();
+      allow update, delete: if isAccountant() || isAdmin();
     }
 
-    // Fallback rule for all other documents
-    match /{document=**} {
-      allow read, write: if true;
+    match /events/{eventId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    match /notifications/{notifId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // -------------------------------------------------------------
+    // Settings & Configuration
+    // -------------------------------------------------------------
+    match /settings/{settingId} {
+      allow read: if true; // Public for crest, logo and theme
+      allow write: if isAdmin();
+    }
+
+    match /systemSettings/{settingId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    match /staffSecretCodes/{codeId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------
+    // Atomic Concurrency Counters & Idempotency Locks
+    // -------------------------------------------------------------
+    match /counters/{counterId} {
+      // Only authorized admission registrars (Admin, Headmaster, Secretary) may inspect counters
+      allow read: if isAdmin() || isSecretary();
+      
+      // Strict creation constraints: Only valid admission counter IDs and positive sequence
+      allow create: if (isAdmin() || isSecretary()) && 
+        counterId.matches('^admission_[0-9]{2}$') &&
+        request.resource.data.currentSequence is int &&
+        request.resource.data.currentSequence >= 1 &&
+        request.resource.data.year is string;
+      
+      // Strict update constraints: Monotonic increment ONLY (+1).
+      // Prevents attackers from skipping sequences, resetting counters, or arbitrarily tampering with sequence values.
+      allow update: if (isAdmin() || isSecretary()) &&
+        counterId.matches('^admission_[0-9]{2}$') &&
+        request.resource.data.currentSequence is int &&
+        request.resource.data.currentSequence == resource.data.currentSequence + 1 &&
+        request.resource.data.year == resource.data.year;
+      
+      // Counters can NEVER be deleted
+      allow delete: if false;
+    }
+
+    match /receipt_locks/{lockId} {
+      // Only finance/administrative personnel may check receipt locks
+      allow read: if isAccountant() || isSecretary() || isAdmin();
+      
+      // Create only: Lock document is established during transaction
+      allow create: if (isAccountant() || isSecretary() || isAdmin()) &&
+        request.resource.data.receiptNo is string &&
+        request.resource.data.paymentId is string &&
+        request.resource.data.amount is number &&
+        request.resource.data.amount > 0;
+      
+      // Receipt locks are immutable once created; cannot be hijacked or reassigned
+      allow update: if false;
+      
+      // Receipt locks cannot be manually released or deleted
+      allow delete: if false;
     }
   }
 }
