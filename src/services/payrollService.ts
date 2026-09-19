@@ -258,7 +258,9 @@ export function generateMonthlyPayrollRun(
   loans: StaffLoanAdvance[],
   settings: PayrollSettingsConfig
 ): PayrollRun {
-  const runId = `run-${month.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
+  const cleanAy = (academicYear || 'current').toLowerCase().replace(/[^a-z0-9]/g, '-');
+  const cleanMonth = month.toLowerCase().replace(/[^a-z0-9]/g, '-');
+  const runId = `payroll-${cleanAy}-${cleanMonth}`;
   const batchNumber = `BATCH-${month.toUpperCase().replace(/\s+/g, '-')}`;
   
   const [mName, yStr] = month.split(' ');

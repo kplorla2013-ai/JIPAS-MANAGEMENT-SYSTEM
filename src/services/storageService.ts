@@ -1004,6 +1004,11 @@ export function recordSecurityAuditLog(log: Omit<SecurityAuditLog, 'id' | 'times
   };
   const updatedLogs = [newEntry, ...currentLogs];
   saveStoredSecurityAuditLogs(updatedLogs);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('jipas_audit_log_created', { detail: newEntry }));
+  }
+
   return newEntry;
 }
 
