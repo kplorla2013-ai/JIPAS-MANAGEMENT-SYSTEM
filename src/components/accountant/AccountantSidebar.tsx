@@ -2,11 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { 
   FileText, DollarSign, Plus, Settings, AlertTriangle, 
   Pin, PinOff, ChevronRight, Menu, X, CheckCircle2, 
-  TrendingUp, Sparkles, User, ShieldCheck, Wallet, Receipt, Layers, Building, Building2
+  TrendingUp, Sparkles, User, ShieldCheck, Wallet, Receipt, Layers, Building, Building2, BellRing, BarChart3
 } from 'lucide-react';
 import JIPASLogo from '../common/JIPASLogo';
 
-export type AccountantTabType = 'collections' | 'bills' | 'new-payment' | 'fee-settings' | 'overdue-alerts' | 'payroll' | 'expenses' | 'secretary-records' | 'bank-deposits' | 'dept-financial-summary';
+export type AccountantTabType = 
+  | 'dashboard' 
+  | 'collections' 
+  | 'revenue-trends'
+  | 'bills' 
+  | 'new-payment' 
+  | 'fee-settings' 
+  | 'overdue-alerts' 
+  | 'automated-reminders'
+  | 'payroll' 
+  | 'expenses' 
+  | 'secretary-records' 
+  | 'bank-deposits' 
+  | 'dept-financial-summary' 
+  | 'audit-trail';
 
 interface AccountantSidebarProps {
   activeTab: AccountantTabType;
@@ -66,12 +80,26 @@ export default function AccountantSidebar({
     isPrimaryAction?: boolean;
   }[] = [
     {
+      id: 'dashboard',
+      label: 'Main Dashboard',
+      sublabel: 'Overview & Analytics',
+      icon: TrendingUp
+    },
+    {
       id: 'collections',
       label: 'Collections & Receipts',
       sublabel: `${collectionsCount} verified payments`,
       icon: FileText,
       badge: collectionsCount > 0 ? collectionsCount : undefined,
       badgeColor: 'bg-emerald-100 text-emerald-800'
+    },
+    {
+      id: 'revenue-trends',
+      label: 'Revenue Trends',
+      sublabel: 'Monthly collections chart',
+      icon: BarChart3,
+      badge: 'Recharts',
+      badgeColor: 'bg-indigo-100 text-indigo-800'
     },
     {
       id: 'bills',
@@ -103,6 +131,14 @@ export default function AccountantSidebar({
       icon: AlertTriangle,
       badge: overdueCount > 0 ? overdueCount : undefined,
       badgeColor: 'bg-rose-500 text-white animate-pulse'
+    },
+    {
+      id: 'automated-reminders',
+      label: 'Fee Reminders Utility',
+      sublabel: 'Unpaid & Partial notices',
+      icon: BellRing,
+      badge: 'Auto',
+      badgeColor: 'bg-amber-100 text-amber-800'
     },
     {
       id: 'expenses',
@@ -143,6 +179,14 @@ export default function AccountantSidebar({
       icon: Building2,
       badge: 'Summary',
       badgeColor: 'bg-indigo-100 text-indigo-800'
+    },
+    {
+      id: 'audit-trail',
+      label: 'Financial Audit Trail',
+      sublabel: 'Immutable log of adjustments',
+      icon: ShieldCheck,
+      badge: 'Governance',
+      badgeColor: 'bg-indigo-600 text-white'
     }
   ];
 
