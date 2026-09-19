@@ -11,7 +11,7 @@ import { Student, PromotionRecord, CourseItem, ClassItem, DepartmentItem, HouseI
 import JIPASLogo from '../common/JIPASLogo';
 import PhotoUploader from '../common/PhotoUploader';
 import { saveStudent, deleteStudent, approveStudentAdmission, rejectStudentAdmission } from '../../services/dbService';
-import { INITIAL_SHS_COURSES } from '../../data/setupData';
+import { INITIAL_SHS_COURSES, INITIAL_CLASSES } from '../../data/setupData';
 
 interface StudentManagerProps {
   activeModule: string;
@@ -36,6 +36,9 @@ export default function StudentManager({
   activeModule,
   students: initialStudents,
   courses = INITIAL_SHS_COURSES,
+  classes = INITIAL_CLASSES,
+  departments = [],
+  houses = [],
   onAddStudent,
   onUpdateStudent,
   onDeleteStudent,
@@ -167,7 +170,25 @@ export default function StudentManager({
   // Promote Students State
   const [promoteSourceClass, setPromoteSourceClass] = useState('Basic 1');
   const [promoteTargetClass, setPromoteTargetClass] = useState('Basic 2');
-  const [selectedForPromotion, setSelectedForPromotion] = useState<string[]>([]);
+  const [promoteAcademicYear, setPromoteAcademicYear] = useState('2026-2027');
+  const [isBulkPromoting, setIsBulkPromoting] = useState(false);
+
+  const handleBulkPromote = async () => {
+    setIsBulkPromoting(true);
+    const studentsInClass = studentsList.filter(s => s.className === promoteSourceClass);
+    const ids = studentsInClass.map(s => s.id);
+    
+    try {
+        await bulkPromoteStudents(ids, promoteTargetClass, promoteAcademicYear);
+        setPromotionToast(true);
+        setTimeout(() => setPromotionToast(false), 3000);
+    } catch (e) {
+        console.error("Bulk promotion failed", e);
+        alert("Failed to promote students. Please check your connection.");
+    } finally {
+        setIsBulkPromoting(false);
+    }
+  };
 
   // Open Edit Modal
   const handleOpenEditStudent = (st: Student) => {
@@ -1759,7 +1780,27 @@ export default function StudentManager({
                 <option value="JHS 2">JHS 2</option>
               </select>
             </div>
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Target Academic Year</label>
+              <select
+                value={promoteAcademicYear}
+                onChange={(e) => setPromoteAcademicYear(e.target.value)}
+                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-indigo-700"
+              >
+                <option value="2025-2026">2025-2026</option>
+                <option value="2026-2027">2026-2027</option>
+              </select>
+            </div>
           </div>
+          
+          <button
+            onClick={handleBulkPromote}
+            disabled={isBulkPromoting}
+            className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all disabled:opacity-50"
+          >
+            {isBulkPromoting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUpRight className="w-4 h-4" />}
+            Promote All Students from {promoteSourceClass} to {promoteTargetClass}
+          </button>
 
           {/* Student selection table */}
           <div className="border border-slate-200 rounded-xl overflow-x-auto">

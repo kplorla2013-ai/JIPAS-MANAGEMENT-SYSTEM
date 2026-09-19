@@ -634,6 +634,19 @@ export default function BackupRecoveryManager({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const MAX_BACKUP_SIZE = 25 * 1024 * 1024; // 25 MB
+    if (file.size > MAX_BACKUP_SIZE) {
+      setRestoreError(`File too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Maximum allowed backup file size is 25MB.`);
+      e.target.value = '';
+      return;
+    }
+
+    if (!file.name.toLowerCase().endsWith('.json')) {
+      setRestoreError('Invalid file type: Please select a valid .json JIPAS backup archive.');
+      e.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
@@ -677,6 +690,7 @@ export default function BackupRecoveryManager({
       }
     };
     reader.readAsText(file);
+    e.target.value = '';
   };
 
   // 4. Trigger Restore Confirmation
