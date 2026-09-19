@@ -15,6 +15,8 @@ import BankDepositManager from './common/BankDepositManager';
 import FinancialDataImporter from './common/FinancialDataImporter';
 import DepartmentalFinancialSummary from './common/DepartmentalFinancialSummary';
 import FinancialAuditTrail from './common/FinancialAuditTrail';
+import RevenueTrendsModule from './accountant/RevenueTrendsModule';
+import AutomatedFeeReminderUtility from './accountant/AutomatedFeeReminderUtility';
 import { runDailyFeeAudit, isDailyAuditDueToday, getStoredAuditSummary, getFormattedTimestamp } from '../services/feeAuditService';
 import { 
   getStoredSecretarySummaries, 
@@ -26,9 +28,9 @@ import {
 } from '../services/storageService';
 import { 
   Calculator, CreditCard, DollarSign, Plus, FileText, 
-  Search, Printer, Download, CheckCircle2, ArrowDownRight, Calendar, User, Check, Settings, AlertTriangle, Send,
+  Search, Printer, Download, CheckCircle2, ArrowDownRight, ArrowLeft, Calendar, User, Check, Settings, AlertTriangle, Send,
   RotateCw, Filter, Phone, MessageSquare, Clock, Sparkles, Wallet, Receipt, Layers, ShieldCheck,
-  Users, BookOpen, ChevronRight, CheckCircle, RefreshCw, Building2, UserCheck, Building
+  Users, BookOpen, ChevronRight, CheckCircle, RefreshCw, Building2, UserCheck, Building, BellRing, BarChart3
 } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 
@@ -44,26 +46,44 @@ interface AccountantPortalProps {
 }
 
 export const VALID_ACCOUNTANT_TABS = new Set<string>([
+  'dashboard',
   'collections',
+  'revenue-trends',
   'bills',
   'new-payment',
   'fee-settings',
   'overdue-alerts',
+  'automated-reminders',
   'expenses',
   'secretary-records',
   'payroll',
   'bank-deposits',
-  'dept-financial-summary'
+  'dept-financial-summary',
+  'audit-trail'
 ]);
 
-export type AccountantTab = 'collections' | 'bills' | 'new-payment' | 'fee-settings' | 'overdue-alerts' | 'expenses' | 'secretary-records' | 'payroll' | 'bank-deposits' | 'dept-financial-summary';
+export type AccountantTab = 
+  | 'dashboard' 
+  | 'collections' 
+  | 'revenue-trends'
+  | 'bills' 
+  | 'new-payment' 
+  | 'fee-settings' 
+  | 'overdue-alerts' 
+  | 'automated-reminders'
+  | 'expenses' 
+  | 'secretary-records' 
+  | 'payroll' 
+  | 'bank-deposits' 
+  | 'dept-financial-summary' 
+  | 'audit-trail';
 
 export const getInitialAccountantTab = (): AccountantTab => {
   if (typeof window !== 'undefined') {
     if (localStorage.getItem('jipas_force_dashboard') === 'true') {
       localStorage.removeItem('jipas_force_dashboard');
-      window.location.hash = 'accountant/collections';
-      return 'collections';
+      window.location.hash = 'accountant/dashboard';
+      return 'dashboard';
     }
     const hash = window.location.hash.replace(/^#\/?/, '');
     if (hash.startsWith('accountant/')) {
@@ -79,7 +99,7 @@ export const getInitialAccountantTab = (): AccountantTab => {
       return saved as AccountantTab;
     }
   }
-  return 'collections';
+  return 'dashboard';
 };
 
 export default function AccountantPortal({ 
@@ -96,7 +116,17 @@ export default function AccountantPortal({
 
   const handlePrintReceipt = (receipt: PaymentRecord) => {
     const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+
+    const student = students.find(s => s.id === receipt.studentId || s.admissionNo === receipt.admissionNo);
+    const parentName = student?.parentName || student?.guardianName || 'Parent / Guardian';
+    const parentPhone = student?.parentPhone || 'N/A';
+    const totalPayable = ((receipt.paid ?? 0) + (receipt.balance ?? 0)).toFixed(2);
+    const amountPaid = (receipt.paid ?? 0).toFixed(2);
+    const balanceRemaining = (receipt.balance ?? 0).toFixed(2);
 
     const logoSrc = getSchoolLogo();
     const absoluteLogoSrc = logoSrc.startsWith('http') || logoSrc.startsWith('data:') 
@@ -107,72 +137,114 @@ export default function AccountantPortal({
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Official Fee Receipt - ${receipt.receiptNo}</title>
+          <title>Parent Invoice & Tuition Receipt - ${receipt.receiptNo}</title>
           <style>
-            @page { size: A5 landscape; margin: 10mm; }
-            body { font-family: system-ui, -apple-system, sans-serif; color: #0f172a; padding: 20px; margin: 0; background: #fff; }
-            .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 15px; }
-            .school-logo { width: 40px; height: 40px; object-fit: contain; margin-bottom: 8px; }
-            .title { font-size: 18px; font-weight: 900; color: #1e1b4b; text-transform: uppercase; }
-            .subtitle { font-size: 11px; font-weight: 800; color: #0284c7; text-transform: uppercase; margin-top: 2px; }
-            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 11px; margin-bottom: 15px; }
-            .box { background: #f8fafc; border: 1px solid #cbd5e1; padding: 10px; border-radius: 8px; }
-            table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 15px; }
-            th { background: #0f172a; color: white; padding: 6px 10px; text-align: left; font-size: 10px; text-transform: uppercase; }
-            td { padding: 6px 10px; border-bottom: 1px solid #e2e8f0; }
+            @page { size: A4 portrait; margin: 12mm; }
+            * { box-sizing: border-box; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #0f172a; margin: 0; padding: 24px; background: #fff; }
+            .print-a4-page { max-width: 210mm; margin: 0 auto; box-sizing: border-box; }
+            .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; }
+            .school-logo { width: 52px; height: 52px; object-fit: contain; margin-bottom: 6px; }
+            .title { font-size: 20px; font-weight: 900; color: #1e1b4b; text-transform: uppercase; letter-spacing: 0.5px; margin: 0; }
+            .subtitle { font-size: 11px; font-weight: 800; color: #0284c7; text-transform: uppercase; margin-top: 3px; }
+            .address { font-size: 10px; color: #64748b; margin-top: 3px; }
+            .banner { background: #0f172a; color: #fff; padding: 8px 14px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+            .banner-title { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+            .banner-badge { font-size: 11px; font-mono; font-weight: 700; background: #0284c7; padding: 2px 8px; border-radius: 4px; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 11px; margin-bottom: 18px; }
+            .box { background: #f8fafc; border: 1px solid #cbd5e1; padding: 12px; border-radius: 8px; line-height: 1.6; }
+            .box-heading { font-size: 10px; font-weight: 800; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 6px; }
+            table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 18px; }
+            th { background: #1e293b; color: #ffffff; padding: 8px 12px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+            td { padding: 9px 12px; border-bottom: 1px solid #e2e8f0; }
             .amount { font-family: monospace; font-weight: bold; text-align: right; }
-            .footer { display: flex; justify-content: space-between; align-items: flex-end; font-size: 10px; color: #64748b; margin-top: 20px; }
-            .stamp { border: 2px dashed #94a3b8; padding: 10px 20px; border-radius: 6px; text-align: center; font-weight: bold; font-size: 9px; }
+            .total-row { background: #f8fafc; font-weight: bold; }
+            .paid-row { background: #ecfdf5; font-weight: 900; color: #047857; font-size: 12px; }
+            .balance-row { background: #fff1f2; font-weight: 900; color: #be123c; }
+            .footer { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 10px; color: #64748b; margin-top: 24px; padding-top: 14px; border-top: 1px solid #e2e8f0; }
+            .stamp { border: 2px dashed #94a3b8; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 9px; color: #334155; }
+            .sig-line { margin-top: 36px; border-top: 1px solid #0f172a; padding-top: 4px; font-size: 10px; font-weight: bold; color: #0f172a; }
+            .notice { font-size: 9px; color: #64748b; text-align: center; margin-top: 16px; border-top: 1px solid #f1f5f9; padding-top: 8px; line-height: 1.4; }
           </style>
         </head>
         <body>
-          <div class="header">
-            <img src="${absoluteLogoSrc}" alt="School Crest" class="school-logo" />
-            <div class="title">JIPAS EDUCATIONAL COMPLEX</div>
-            <div class="subtitle">OFFICIAL FEE PAYMENT RECEIPT</div>
-            <div style="font-size: 10px; color: #64748b;">Accra, Ghana &bull; Official Bursar & Accounts Desk</div>
-          </div>
-
-          <div class="grid">
-            <div class="box">
-              <strong>STUDENT INFORMATION</strong><br/>
-              Name: <strong>${receipt.studentName}</strong><br/>
-              Admission No: <strong>${receipt.admissionNo}</strong><br/>
-              Class: <strong>${receipt.className}</strong>
+          <div class="print-a4-page">
+            <div class="header">
+              <img src="${absoluteLogoSrc}" alt="School Crest" class="school-logo" />
+              <div class="title">JIPAS EDUCATIONAL COMPLEX</div>
+              <div class="subtitle">OFFICIAL PARENT FEE INVOICE & PAYMENT RECEIPT</div>
+              <div class="address">Accra, Ghana &bull; Official Bursar & Accounts Division &bull; Tel: +233 24 123 4567</div>
             </div>
-            <div class="box">
-              <strong>RECEIPT DETAILS</strong><br/>
-              Receipt No: <strong>${receipt.receiptNo}</strong><br/>
-              Date: <strong>${receipt.date}</strong><br/>
-              Method: <strong>${receipt.paymentMethod || receipt.method || 'Cash / Mobile Money'}</strong>
-            </div>
-          </div>
 
-          <table>
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th style="text-align: right;">Amount Paid (CFA)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>${receipt.paidAs || 'Tuition Fee Payment'}</td>
-                <td class="amount">${(receipt.paid ?? 0).toFixed(2)} CFA</td>
-              </tr>
-              <tr style="background: #f8fafc; font-weight: bold;">
-                <td>Remaining Balance Outstanding</td>
-                <td class="amount" style="color: #be123c;">${(receipt.balance ?? 0).toFixed(2)} CFA</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div class="footer">
-            <div>
-              Cashier / Collected By: <strong>${receipt.collectedBy || 'Accountant'}</strong><br/>
-              Thank you for your prompt payment.
+            <div class="banner">
+              <div class="banner-title">Parent Tuition Invoice & Discharge Voucher</div>
+              <div class="banner-badge">Receipt No: ${receipt.receiptNo}</div>
             </div>
-            <div class="stamp">OFFICIAL BURSAR STAMP</div>
+
+            <div class="grid">
+              <div class="box">
+                <div class="box-heading">Parent & Student Particulars</div>
+                <strong>Student:</strong> ${receipt.studentName}<br/>
+                <strong>Admission No:</strong> ${receipt.admissionNo}<br/>
+                <strong>Class:</strong> ${receipt.className} (${receipt.department || student?.department || 'General'})<br/>
+                <strong>Parent / Guardian:</strong> ${parentName}<br/>
+                <strong>Contact Phone:</strong> ${parentPhone}
+              </div>
+              <div class="box">
+                <div class="box-heading">Receipt & Transaction Metadata</div>
+                <strong>Receipt No:</strong> ${receipt.receiptNo}<br/>
+                <strong>Date & Time:</strong> ${receipt.date}<br/>
+                <strong>Payment Method:</strong> ${receipt.paymentMethod || receipt.method || 'Cash / Mobile Money'}<br/>
+                <strong>Receiving Officer:</strong> ${receipt.collectedBy || 'Accountant'}<br/>
+                <strong>Status:</strong> <span style="color: #047857; font-weight: bold;">Verified & Reconciled</span>
+              </div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Description / Fee Item</th>
+                  <th>Academic Session</th>
+                  <th style="text-align: right;">Total Billed</th>
+                  <th style="text-align: right;">Amount Paid (CFA)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>${receipt.paidAs || 'Tuition & Terminal Instruction Fee'}</strong></td>
+                  <td>2025/2026 Academic Session</td>
+                  <td class="amount">${totalPayable} CFA</td>
+                  <td class="amount" style="font-weight: bold; color: #047857;">${amountPaid} CFA</td>
+                </tr>
+                <tr class="paid-row">
+                  <td colspan="3">Net Amount Paid This Transaction</td>
+                  <td class="amount">${amountPaid} CFA</td>
+                </tr>
+                <tr class="balance-row">
+                  <td colspan="3">Net Remaining Outstanding Balance</td>
+                  <td class="amount">${balanceRemaining} CFA</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="footer">
+              <div>
+                <p style="margin: 0 0 4px 0;"><strong>Acknowledgment:</strong></p>
+                <p style="margin: 0;">Received with thanks from <em>${parentName}</em> on account of <em>${receipt.studentName}</em>.</p>
+                <div class="sig-line">
+                  Authorized Bursar Signature & Date
+                </div>
+              </div>
+              <div class="stamp">
+                JIPAS EDUCATIONAL COMPLEX<br/>
+                <span style="color: #0284c7; font-size: 8px;">OFFICIAL BURSAR SEAL & VERIFICATION</span><br/>
+                DATE: ${receipt.date}
+              </div>
+            </div>
+
+            <div class="notice">
+              Notice: This document serves as an official parent invoice and fee payment clearance voucher issued by JIPAS Educational Complex. Please retain this copy for examination admittance and student records reconciliation.
+            </div>
           </div>
 
           <script>window.onload = function() { window.print(); window.close(); }</script>
@@ -625,6 +697,62 @@ export default function AccountantPortal({
     });
   }, [payments, students, searchQuery, filterMethod, filterDepartment, filterClass, filterDateRange, filterStartDate, filterEndDate, filterPaymentStatus, sortBy]);
 
+  // CSV Export utility for filtered payment records (external auditing)
+  const handleExportFilteredPaymentsCSV = () => {
+    if (filteredPayments.length === 0) {
+      alert('No payment records match the current filters to export.');
+      return;
+    }
+
+    const headers = [
+      'Receipt No',
+      'Date & Time',
+      'Student Name',
+      'Admission No',
+      'Department',
+      'Class',
+      'Paid As / Description',
+      'Payment Method',
+      'Amount Paid (CFA)',
+      'Remaining Balance (CFA)',
+      'Payment Status',
+      'Collected By / Cashier',
+      'Academic Term'
+    ];
+
+    const rows = filteredPayments.map(p => {
+      const student = students.find(s => s.id === p.studentId || s.admissionNo === p.admissionNo);
+      const dept = p.department || student?.department || 'General';
+      const term = p.term || 'Term 1';
+
+      return [
+        `"${p.receiptNo || ''}"`,
+        `"${p.date || ''}"`,
+        `"${(p.studentName || '').replace(/"/g, '""')}"`,
+        `"${p.admissionNo || ''}"`,
+        `"${dept.replace(/"/g, '""')}"`,
+        `"${p.className || ''}"`,
+        `"${(p.paidAs || 'Tuition Fee Payment').replace(/"/g, '""')}"`,
+        `"${p.method || p.paymentMethod || 'Cash'}"`,
+        (p.paid ?? 0).toFixed(2),
+        (p.balance ?? 0).toFixed(2),
+        `"${p.status || 'Paid'}"`,
+        `"${(p.collectedBy || 'Accountant').replace(/"/g, '""')}"`,
+        `"${term}"`
+      ];
+    });
+
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `JIPAS_Payment_Collections_Audit_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="flex flex-col lg:flex-row gap-6 items-start relative">
       {/* Auto Hide/Show Sidebar on Mouse Hover */}
@@ -666,9 +794,48 @@ export default function AccountantPortal({
           />
         </div>
 
-        {/* Accountant Top Banner */}
-        <div className="relative overflow-hidden bg-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 border border-cyan-900/40">
-          {/* School Wallpaper Backdrop with Gradient Overlay */}
+        {/* Navigation Breadcrumb when viewing selected menu item */}
+        {activeTab !== 'dashboard' && (
+          <div className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl px-5 py-3.5 shadow-xs">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setActiveTab('dashboard')}
+                className="flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-cyan-700 bg-slate-100 hover:bg-cyan-50 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Back to Dashboard</span>
+              </button>
+              <div className="h-4 w-px bg-slate-200" />
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 font-medium">Financial & Accounts</span>
+                <span className="text-xs text-slate-300">/</span>
+                <span className="text-xs font-bold text-slate-900 capitalize">
+                  {activeTab.replace(/-/g, ' ')}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {activeTab !== 'new-payment' && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('new-payment')}
+                  className="flex items-center gap-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-xl shadow-xs transition-all cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Collect Payment</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Main Dashboard Items: Displayed only when activeTab === 'dashboard' */}
+        {activeTab === 'dashboard' && (
+          <div className="space-y-6">
+            {/* Accountant Top Banner */}
+            <div className="relative overflow-hidden bg-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 border border-cyan-900/40">
+              {/* School Wallpaper Backdrop with Gradient Overlay */}
           <div 
             className="absolute inset-0 bg-cover bg-center opacity-25 mix-blend-luminosity scale-105 pointer-events-none"
             style={{ backgroundImage: `url('/wallpapers/assembly.jpg')` }}
@@ -1213,30 +1380,127 @@ export default function AccountantPortal({
                 </p>
               </div>
             </button>
+
+            {/* Menu 11: Revenue Trends Module */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('revenue-trends')}
+              className={`group p-4 rounded-2xl text-left transition-all duration-200 border cursor-pointer flex flex-col justify-between space-y-3 ${
+                activeTab === 'revenue-trends'
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-md scale-[1.02]'
+                  : 'bg-gradient-to-br from-indigo-50/80 to-slate-50 hover:from-indigo-600 hover:to-indigo-700 border-indigo-100 hover:border-indigo-600 hover:text-white shadow-2xs hover:shadow-lg hover:-translate-y-1'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors shadow-xs ${
+                  activeTab === 'revenue-trends'
+                    ? 'bg-white text-indigo-700'
+                    : 'bg-indigo-600 text-white group-hover:bg-white group-hover:text-indigo-700'
+                }`}>
+                  <BarChart3 className="w-5 h-5" />
+                </div>
+                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider transition-colors ${
+                  activeTab === 'revenue-trends'
+                    ? 'bg-indigo-800 text-indigo-100'
+                    : 'bg-indigo-100 group-hover:bg-indigo-500 text-indigo-800 group-hover:text-white'
+                }`}>
+                  Recharts
+                </span>
+              </div>
+              <div>
+                <h4 className={`font-extrabold text-xs transition-colors flex items-center gap-1 ${
+                  activeTab === 'revenue-trends' ? 'text-white' : 'text-slate-900 group-hover:text-white'
+                }`}>
+                  Revenue Trends
+                </h4>
+                <p className={`text-[11px] mt-0.5 line-clamp-2 transition-colors ${
+                  activeTab === 'revenue-trends' ? 'text-indigo-100' : 'text-slate-500 group-hover:text-indigo-100'
+                }`}>
+                  Monthly fee collection totals, curves & trajectories
+                </p>
+              </div>
+            </button>
+
+            {/* Menu 12: Automated Fee Reminders Utility */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('automated-reminders')}
+              className={`group p-4 rounded-2xl text-left transition-all duration-200 border cursor-pointer flex flex-col justify-between space-y-3 ${
+                activeTab === 'automated-reminders'
+                  ? 'bg-amber-600 text-white border-amber-600 shadow-md scale-[1.02]'
+                  : 'bg-gradient-to-br from-amber-50/80 to-slate-50 hover:from-amber-600 hover:to-amber-700 border-amber-100 hover:border-amber-600 hover:text-white shadow-2xs hover:shadow-lg hover:-translate-y-1'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors shadow-xs ${
+                  activeTab === 'automated-reminders'
+                    ? 'bg-white text-amber-700'
+                    : 'bg-amber-600 text-white group-hover:bg-white group-hover:text-amber-700'
+                }`}>
+                  <BellRing className="w-5 h-5" />
+                </div>
+                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider transition-colors ${
+                  activeTab === 'automated-reminders'
+                    ? 'bg-amber-800 text-amber-100'
+                    : 'bg-amber-100 group-hover:bg-amber-500 text-amber-800 group-hover:text-white'
+                }`}>
+                  Automated
+                </span>
+              </div>
+              <div>
+                <h4 className={`font-extrabold text-xs transition-colors flex items-center gap-1 ${
+                  activeTab === 'automated-reminders' ? 'text-white' : 'text-slate-900 group-hover:text-white'
+                }`}>
+                  Fee Reminders Utility
+                </h4>
+                <p className={`text-[11px] mt-0.5 line-clamp-2 transition-colors ${
+                  activeTab === 'automated-reminders' ? 'text-amber-100' : 'text-slate-500 group-hover:text-amber-100'
+                }`}>
+                  Scan unpaid & partial fees, dispatch parent notices
+                </p>
+              </div>
+            </button>
           </div>
         </div>
       </div>
+    </div>
+  )}
 
-      {/* DYNAMIC ACCOUNTANT TABS WITH ENTRY ANIMATIONS */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={activeTab}
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.22, ease: 'easeOut' }}
-        >
-          {/* AUDIT TRAIL TAB */}
-          {activeTab === 'audit-trail' && (
-            <FinancialAuditTrail 
-              payments={payments}
-              expenses={expenses}
-              bills={bills}
-            />
-          )}
+      {/* REVENUE TRENDS TAB (Recharts Module) */}
+      {activeTab === 'revenue-trends' && (
+        <RevenueTrendsModule
+          payments={payments}
+          students={students}
+          onNavigateToCollections={() => setActiveTab('collections')}
+        />
+      )}
 
-          {/* OVERDUE ALERTS TAB */}
-          {activeTab === 'overdue-alerts' && (
+      {/* AUTOMATED FEE REMINDERS UTILITY TAB */}
+      {activeTab === 'automated-reminders' && (
+        <AutomatedFeeReminderUtility
+          students={students}
+          bills={bills}
+          onAddNotification={onAddNotification}
+          onRecordPayment={(studentId, balance) => {
+            setSelectedStudentId(studentId);
+            setAmountPaid(balance.toString());
+            setActiveTab('new-payment');
+          }}
+          onClose={() => setActiveTab('dashboard')}
+        />
+      )}
+
+      {/* AUDIT TRAIL TAB */}
+      {activeTab === 'audit-trail' && (
+        <FinancialAuditTrail 
+          payments={payments}
+          expenses={expenses}
+          bills={bills}
+        />
+      )}
+
+      {/* OVERDUE ALERTS TAB */}
+      {activeTab === 'overdue-alerts' && (
         <OverdueFeeAlertsManager
           students={students}
           bills={bills}
@@ -1269,14 +1533,36 @@ export default function AccountantPortal({
               <p className="text-xs text-slate-500">Repository of all issued receipts and collected tuition/fee payments.</p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setIsImporterOpen(true)}
-              className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black rounded-xl text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer shrink-0"
-            >
-              <Download className="w-3.5 h-3.5 rotate-180" />
-              <span>Import Financial Records</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleExportFilteredPaymentsCSV}
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black rounded-xl text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer shrink-0"
+                title="Export current filtered payment records as CSV for external auditing"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export Audit CSV ({filteredPayments.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('revenue-trends')}
+                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black rounded-xl text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer shrink-0"
+                title="View monthly collection trends and trajectory"
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                <span>Revenue Trends</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsImporterOpen(true)}
+                className="px-3.5 py-2 bg-slate-700 hover:bg-slate-800 active:scale-95 text-white font-black rounded-xl text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer shrink-0"
+              >
+                <Download className="w-3.5 h-3.5 rotate-180" />
+                <span>Import Records</span>
+              </button>
+            </div>
           </div>
 
           {/* FINANCIAL INSIGHTS DASHBOARD */}
@@ -1552,7 +1838,7 @@ export default function AccountantPortal({
                   <th className="p-3">Method</th>
                   <th className="p-3 text-right">Amount Paid</th>
                   <th className="p-3">Status</th>
-                  <th className="p-3 text-center">Receipt</th>
+                  <th className="p-3 text-center">Print Receipt</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
@@ -1592,10 +1878,13 @@ export default function AccountantPortal({
                         </td>
                         <td className="p-3 text-center">
                           <button
+                            type="button"
                             onClick={() => setActiveReceipt(p)}
-                            className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold shadow-xs flex items-center gap-1 mx-auto cursor-pointer"
+                            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 mx-auto transition-all cursor-pointer whitespace-nowrap"
+                            title="Print official A4 parent invoice & receipt"
                           >
-                            <Printer className="w-3 h-3" /> View
+                            <Printer className="w-3.5 h-3.5" />
+                            <span>Print Receipt</span>
                           </button>
                         </td>
                       </tr>
@@ -2592,92 +2881,236 @@ export default function AccountantPortal({
           expenses={expenses}
         />
       )}
-        </motion.div>
-      </AnimatePresence>
 
-      {/* Official Printable Receipt Modal */}
-      {activeReceipt && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div id="printable-receipt" className="print-a4-page print-no-break bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 space-y-5 relative">
-            <button
-              onClick={() => setActiveReceipt(null)}
-              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 font-bold text-sm w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center"
-            >
-              ✕
-            </button>
+      {/* Official Printable Receipt & Parent Invoice Modal */}
+      {activeReceipt && (() => {
+        const student = students.find(s => s.id === activeReceipt.studentId || s.admissionNo === activeReceipt.admissionNo);
+        const parentName = student?.parentName || student?.guardianName || 'Parent / Guardian';
+        const parentPhone = student?.parentPhone || 'N/A';
+        const totalPayable = (activeReceipt.paid ?? 0) + (activeReceipt.balance ?? 0);
+        const amountPaid = activeReceipt.paid ?? 0;
+        const balanceRemaining = activeReceipt.balance ?? 0;
 
-            {/* School Receipt Header */}
-            <div className="text-center border-b border-slate-200 pb-4 flex flex-col items-center">
-              <JIPASLogo size="sm" className="mb-2" />
-              <h2 className="text-base font-black text-slate-900 uppercase tracking-wide">
-                JIPAS
-              </h2>
-              <p className="text-[10px] text-slate-500">Official Fees & Tuition Payment Receipt • Est. 1990</p>
-              <p className="text-[10px] font-mono text-slate-400 mt-1">Receipt No: <strong className="text-slate-900">{activeReceipt.receiptNo}</strong></p>
-            </div>
-
-            {/* Details */}
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div>
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">Student Name</span>
-                <span className="font-bold text-slate-900">{activeReceipt.studentName}</span>
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto print:p-0 print:bg-white print:fixed print:inset-0">
+            <div id="printable-receipt" className="print-a4-page print-no-break bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-2xl w-full p-6 sm:p-8 space-y-5 relative my-auto print:max-w-none print:w-full print:p-0 print:border-none print:shadow-none print:rounded-none">
+              {/* Modal Control Header (Hidden when printing) */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3.5 print:hidden">
+                <div className="flex items-center gap-2">
+                  <span className="bg-indigo-100 text-indigo-800 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                    Parent Invoice & Receipt
+                  </span>
+                  <span className="text-xs font-mono font-bold text-slate-500">#{activeReceipt.receiptNo}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
+                    title="Print A4 Page Layout"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Print Invoice</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePrintReceipt(activeReceipt)}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                    title="Open separate print pop-up"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Pop-out</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveReceipt(null)}
+                    className="text-slate-400 hover:text-slate-600 font-bold text-sm w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center cursor-pointer transition-all"
+                    title="Close"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
-              <div>
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">Admission No</span>
-                <span className="font-mono font-bold text-indigo-700">{activeReceipt.admissionNo}</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">Class</span>
-                <span className="font-semibold text-slate-800">{activeReceipt.className}</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">Date & Time</span>
-                <span className="font-mono text-slate-600">{activeReceipt.date}</span>
-              </div>
-            </div>
 
-            {/* Financial Breakdown Table */}
-            <table className="w-full text-left text-xs border border-slate-200 rounded-lg overflow-hidden">
-              <thead className="bg-slate-50 text-slate-700 font-bold text-[10px] uppercase">
-                <tr>
-                  <th className="p-2.5">Description</th>
-                  <th className="p-2.5 text-right">Amount (CFA)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
-                <tr>
-                  <td className="p-2.5">{activeReceipt.paidAs}</td>
-                  <td className="p-2.5 text-right font-mono font-bold text-emerald-700">{(activeReceipt.paid ?? 0).toFixed(2)} CFA</td>
-                </tr>
-                <tr className="bg-slate-50 font-bold">
-                  <td className="p-2.5">Remaining Balance:</td>
-                  <td className="p-2.5 text-right font-mono text-rose-600">{(activeReceipt.balance ?? 0).toFixed(2)} CFA</td>
-                </tr>
-              </tbody>
-            </table>
+              {/* School Header */}
+              <div className="text-center border-b-2 border-slate-900 pb-4 flex flex-col items-center">
+                <JIPASLogo size="md" className="mb-2" />
+                <h2 className="text-lg sm:text-xl font-black text-slate-900 uppercase tracking-wide">
+                  JIPAS EDUCATIONAL COMPLEX
+                </h2>
+                <p className="text-[11px] font-extrabold text-sky-600 uppercase tracking-wider mt-0.5">
+                  "Education is Wealth" • Official Accounts & Bursary Division
+                </p>
+                <p className="text-[10px] text-slate-500 mt-0.5">
+                  Accra, Ghana • P.O. Box GP 1420 • Tel: +233 24 123 4567 / +233 20 765 4321
+                </p>
+              </div>
 
-            <div className="flex justify-between items-center text-[10px] text-slate-500 pt-2 border-t border-slate-100">
-              <span>Method: <strong className="text-slate-800">{activeReceipt.method}</strong></span>
-              <span>Cashier: <strong className="text-slate-800">{activeReceipt.collectedBy}</strong></span>
-            </div>
+              {/* Title Banner */}
+              <div className="bg-slate-900 text-white px-4 py-2 rounded-xl flex items-center justify-between text-xs">
+                <span className="font-extrabold uppercase tracking-wider text-[11px]">
+                  Official Tuition Payment Receipt & Parent Invoice
+                </span>
+                <span className="font-mono bg-sky-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                  {activeReceipt.receiptNo}
+                </span>
+              </div>
 
-            <div className="flex gap-2 pt-2">
-              <button
-                onClick={() => handlePrintReceipt(activeReceipt)}
-                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
-              >
-                <Printer className="w-3.5 h-3.5" /> Generate & Print Official Receipt
-              </button>
-              <button
-                onClick={() => setActiveReceipt(null)}
-                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs"
-              >
-                Close
-              </button>
+              {/* Two-Column Particulars Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="bg-slate-50/90 border border-slate-200 rounded-xl p-3.5 space-y-1">
+                  <div className="text-[10px] font-black uppercase text-slate-400 border-b border-slate-200 pb-1 mb-1.5">
+                    Parent & Student Particulars
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-medium">Student:</span>{' '}
+                    <strong className="text-slate-900 font-bold">{activeReceipt.studentName}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-medium">Admission No:</span>{' '}
+                    <span className="font-mono font-bold text-indigo-700">{activeReceipt.admissionNo}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-medium">Class:</span>{' '}
+                    <strong className="text-slate-800">{activeReceipt.className}</strong>{' '}
+                    <span className="text-slate-500">({activeReceipt.department || student?.department || 'General'})</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-medium">Parent/Guardian:</span>{' '}
+                    <strong className="text-slate-900">{parentName}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-medium">Contact Phone:</span>{' '}
+                    <span className="font-mono font-semibold text-slate-700">{parentPhone}</span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50/90 border border-slate-200 rounded-xl p-3.5 space-y-1">
+                  <div className="text-[10px] font-black uppercase text-slate-400 border-b border-slate-200 pb-1 mb-1.5">
+                    Transaction & Payment Metadata
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-medium">Receipt No:</span>{' '}
+                    <strong className="font-mono text-blue-700">{activeReceipt.receiptNo}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-medium">Date & Time:</span>{' '}
+                    <span className="font-mono text-slate-700">{activeReceipt.date}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-medium">Payment Method:</span>{' '}
+                    <span className="bg-cyan-100 text-cyan-800 px-2 py-0.5 rounded text-[10px] font-bold">
+                      {activeReceipt.method || activeReceipt.paymentMethod || 'Cash / Mobile Money'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-medium">Cashier / Bursar:</span>{' '}
+                    <strong className="text-slate-800">{activeReceipt.collectedBy || 'Accountant'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-medium">Audit Status:</span>{' '}
+                    <span className="text-emerald-700 font-bold">Verified & Official Record</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Financial Breakdown Table */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase tracking-wider">
+                    <tr>
+                      <th className="p-3">Description / Item</th>
+                      <th className="p-3">Academic Session</th>
+                      <th className="p-3 text-right">Total Billed</th>
+                      <th className="p-3 text-right">Paid Today</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    <tr>
+                      <td className="p-3 font-semibold text-slate-900">
+                        {activeReceipt.paidAs || 'Tuition & Terminal Instructional Fees'}
+                      </td>
+                      <td className="p-3 text-slate-500 font-mono text-[11px]">
+                        2025/2026 Academic Session
+                      </td>
+                      <td className="p-3 text-right font-mono text-slate-700 font-bold">
+                        {totalPayable.toFixed(2)} CFA
+                      </td>
+                      <td className="p-3 text-right font-mono font-black text-emerald-700 text-sm">
+                        {amountPaid.toFixed(2)} CFA
+                      </td>
+                    </tr>
+                    <tr className="bg-emerald-50 font-bold text-emerald-900">
+                      <td colSpan={3} className="p-2.5 text-right font-extrabold uppercase text-[10px] tracking-wider">
+                        Net Amount Received (This Transaction):
+                      </td>
+                      <td className="p-2.5 text-right font-mono font-black text-emerald-800 text-sm">
+                        {amountPaid.toFixed(2)} CFA
+                      </td>
+                    </tr>
+                    <tr className="bg-rose-50 font-bold text-rose-900">
+                      <td colSpan={3} className="p-2.5 text-right font-extrabold uppercase text-[10px] tracking-wider">
+                        Remaining Outstanding Balance:
+                      </td>
+                      <td className="p-2.5 text-right font-mono font-black text-rose-700 text-sm">
+                        {balanceRemaining.toFixed(2)} CFA
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Formal Authentication & Signatures */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100 text-xs text-slate-600">
+                <div className="space-y-1">
+                  <p className="text-[11px] font-medium text-slate-600 leading-relaxed">
+                    Received with thanks from <strong className="text-slate-900">{parentName}</strong> on account of <strong className="text-slate-900">{activeReceipt.studentName}</strong>.
+                  </p>
+                  <div className="pt-6 border-b border-slate-900 max-w-[200px]" />
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                    Authorized Bursar Signature & Date
+                  </span>
+                </div>
+                <div className="border-2 border-dashed border-slate-300 rounded-xl p-3 text-center flex flex-col justify-center items-center">
+                  <span className="text-[10px] font-black uppercase text-slate-700 tracking-wider">
+                    JIPAS EDUCATIONAL COMPLEX
+                  </span>
+                  <span className="text-[9px] font-extrabold text-sky-600 uppercase tracking-widest mt-0.5">
+                    Official Bursary Seal & Verified
+                  </span>
+                  <span className="font-mono text-[9px] text-slate-400 mt-1">
+                    Date: {activeReceipt.date}
+                  </span>
+                </div>
+              </div>
+
+              {/* Parent Advisory Notice */}
+              <div className="text-center text-[9px] text-slate-400 border-t border-slate-100 pt-2 leading-relaxed">
+                Notice to Parents: This invoice and payment receipt serves as an official institutional financial record. Please retain this copy for examination clearance and administrative verification.
+              </div>
+
+              {/* Action Buttons (Screen view only) */}
+              <div className="flex gap-2 pt-2 print:hidden">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer transition-all"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print Official A4 Invoice (Parent Copy)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveReceipt(null)}
+                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-bold rounded-xl text-xs cursor-pointer transition-all"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Fast Action Required Follow-Up Modal */}
       {isFollowUpModalOpen && activeFollowUpBill && (

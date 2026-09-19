@@ -8,7 +8,6 @@ import {
 import JIPASLogo from './common/JIPASLogo';
 import LanguageSwitcher from './common/LanguageSwitcher';
 import EmailVerificationModal from './common/EmailVerificationModal';
-import { AppPresentationOverviewModal } from './common/AppPresentationOverviewModal';
 import { isEmailVerified } from '../services/verificationService';
 import { 
   authenticateWithFirebase, 
@@ -30,7 +29,6 @@ type AuthViewMode = 'login' | 'register_faculty' | 'register_student';
 
 export default function LoginScreen({ onLogin, studentsList, teachersList = [] }: LoginScreenProps) {
   const [viewMode, setViewMode] = useState<AuthViewMode>('login');
-  const [showPresentationOverview, setShowPresentationOverview] = useState(false);
   const [activeWallpaper] = useState<'classroom' | 'assembly'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('jipas_login_wallpaper');
@@ -610,21 +608,10 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
       <div className="absolute inset-0 bg-gradient-to-b from-slate-950/85 via-slate-950/75 to-slate-950/90 backdrop-blur-[1.5px]" />
       <div className="absolute inset-0 bg-blue-950/20 mix-blend-overlay" />
 
-      {/* Top Controls: App Overview Presentation & Language Selector */}
-      <div className="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowPresentationOverview(true)}
-            className="bg-gradient-to-r from-amber-500/30 via-orange-500/20 to-amber-500/30 hover:from-amber-500/40 hover:to-orange-500/40 active:scale-95 backdrop-blur-md text-white border border-amber-400/40 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg transition-all cursor-pointer animate-pulse hover:animate-none"
-            title="Open App Overview & Institutional Presentation"
-          >
-            <Presentation className="w-3.5 h-3.5 text-amber-300" />
-            <span className="text-amber-200 font-black">App Overview & Presentation</span>
-          </button>
+        {/* Language Switcher Wrapper */}
+        <div className="absolute top-4 right-4 z-20 flex items-center">
+          <LanguageSwitcher variant="pill" />
         </div>
-
-        <LanguageSwitcher variant="pill" />
-      </div>
 
       {/* Background Decorative Glow */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -663,35 +650,8 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
             </p>
           </div>
 
-          {/* App Overview & Presentation Callout Banner */}
+          {/* App Overview & Presentation Callout Banner Removed */}
           <div className="mb-4">
-            <button
-              type="button"
-              onClick={() => setShowPresentationOverview(true)}
-              className="w-full p-2.5 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 hover:from-amber-100 hover:to-orange-100 border border-amber-300/80 rounded-2xl flex items-center justify-between gap-3 text-left transition-all shadow-xs group cursor-pointer"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-amber-500 text-white rounded-xl shadow-xs group-hover:scale-105 transition-transform">
-                  <Presentation className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-black text-slate-900">
-                      App Presentation & Overview
-                    </span>
-                    <span className="bg-amber-200 text-amber-900 text-[9px] font-extrabold px-1.5 py-0.2 rounded-md uppercase">
-                      New
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 font-medium">
-                    Walkthrough key modules, GES grading, & portals
-                  </p>
-                </div>
-              </div>
-              <span className="text-xs font-bold text-amber-700 group-hover:translate-x-0.5 transition-transform">
-                Explore →
-              </span>
-            </button>
           </div>
 
           {errorMsg && (
@@ -1367,15 +1327,6 @@ export default function LoginScreen({ onLogin, studentsList, teachersList = [] }
             setShowVerificationModal(false);
             setPendingRegistrationAction(null);
           }}
-        />
-      )}
-
-      {/* Institutional App Presentation & System Overview Modal */}
-      {showPresentationOverview && (
-        <AppPresentationOverviewModal
-          isOpen={showPresentationOverview}
-          onClose={() => setShowPresentationOverview(false)}
-          onSelectRole={handleDemoLogin}
         />
       )}
 

@@ -43,7 +43,7 @@ import {
   Send, Eye, History, RefreshCw, CheckCircle2, Mail, Clock, AlertTriangle, LogOut, Printer, Wallet, TrendingUp, ChevronRight, ChevronDown,
   PanelLeftClose, PanelLeftOpen, MessageCircle, Database, Trash2, X, Sparkles, Palette, Download, Menu, Presentation, ShieldCheck
 } from 'lucide-react';
-import { AppPresentationOverviewModal } from './common/AppPresentationOverviewModal';
+
 
 interface AdminPortalProps {
   currentUser?: any;
@@ -362,14 +362,6 @@ export default function AdminPortal({
     }
   });
 
-  // App Presentation & Institutional Overview Modal state
-  const [showPresentationModal, setShowPresentationModal] = useState<boolean>(false);
-  const [presentationInitialSlide, setPresentationInitialSlide] = useState<number>(0);
-
-  const openPresentationDeck = (slideIndex: number = 0) => {
-    setPresentationInitialSlide(slideIndex);
-    setShowPresentationModal(true);
-  };
 
   const toggleSidebar = (openState: boolean) => {
     setIsSidebarOpen(openState);
@@ -839,15 +831,7 @@ export default function AdminPortal({
                   );
                 })}
 
-                {/* Direct App Overview Launcher in Collapsed Sidebar */}
-                <button
-                  onClick={() => openPresentationDeck(0)}
-                  title="App Overview & Presentation Deck"
-                  className="w-full flex flex-col items-center justify-center p-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 transition-all cursor-pointer text-center"
-                >
-                  <Presentation className="w-5 h-5 text-amber-300" />
-                  <span className="text-[8px] font-black uppercase mt-1">Deck</span>
-                </button>
+                
               </div>
             ) : (
               /* Expanded Mode Accordion Categories */
@@ -942,7 +926,7 @@ export default function AdminPortal({
       <div className="flex-1 min-w-0 w-full space-y-6">
         {/* Top Action Bar: Search Bar, Sidebar Toggle & Presentation Button */}
         <div className="flex items-center justify-between gap-3 w-full px-1">
-          {/* Header Sidebar Collapse/Expand Toggle Button */}
+            {/* Header Sidebar Collapse/Expand Toggle Button */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
@@ -965,16 +949,6 @@ export default function AdminPortal({
               <span className="hidden sm:inline">
                 {!isSidebarOpen ? "Open Menu" : isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
               </span>
-            </button>
-
-            {/* Quick App Overview Presentation Button */}
-            <button
-              onClick={() => openPresentationDeck(0)}
-              className="px-3 py-2 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-              title="Open Users Portals Presentation & Architecture Overview"
-            >
-              <Presentation className="w-4 h-4 text-amber-400" />
-              <span className="hidden md:inline">Portals Presentation</span>
             </button>
           </div>
 
@@ -1231,13 +1205,6 @@ export default function AdminPortal({
 
                 <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
                   <button
-                    onClick={() => openPresentationDeck(0)}
-                    className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs shadow-lg shadow-amber-500/25 transition-all cursor-pointer"
-                  >
-                    <Presentation className="w-4 h-4 text-slate-950" />
-                    <span>Launch Institutional Deck</span>
-                  </button>
-                  <button
                     onClick={() => setActiveModule('system_manage_logins')}
                     className="flex items-center gap-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/80 px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer"
                   >
@@ -1286,7 +1253,7 @@ export default function AdminPortal({
 
                   <div className="pt-3 mt-3 border-t border-blue-950/80 flex items-center justify-between gap-2">
                     <button
-                      onClick={() => openPresentationDeck(1)}
+                      onClick={() => {}}
                       className="text-[11px] font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 cursor-pointer"
                     >
                       <Eye className="w-3.5 h-3.5" />
@@ -1338,14 +1305,6 @@ export default function AdminPortal({
 
                   <div className="pt-3 mt-3 border-t border-blue-950/80 flex items-center justify-between gap-2">
                     <button
-                      onClick={() => openPresentationDeck(2)}
-                      className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 cursor-pointer"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>Review Deck</span>
-                    </button>
-                    <button
-                      onClick={() => setActiveModule('teacher_assign')}
                       className="text-[11px] font-bold bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
                     >
                       Assign Staff
@@ -1390,14 +1349,6 @@ export default function AdminPortal({
 
                   <div className="pt-3 mt-3 border-t border-blue-950/80 flex items-center justify-between gap-2">
                     <button
-                      onClick={() => openPresentationDeck(3)}
-                      className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 cursor-pointer"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>Review Deck</span>
-                    </button>
-                    <button
-                      onClick={() => setActiveModule('fee_collection')}
                       className="text-[11px] font-bold bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
                     >
                       Collect Fees
@@ -1442,14 +1393,6 @@ export default function AdminPortal({
 
                   <div className="pt-3 mt-3 border-t border-blue-950/80 flex items-center justify-between gap-2">
                     <button
-                      onClick={() => openPresentationDeck(4)}
-                      className="text-[11px] font-bold text-purple-400 hover:text-purple-300 flex items-center gap-1 cursor-pointer"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>Review Deck</span>
-                    </button>
-                    <button
-                      onClick={() => setActiveModule('system_student_portal_ctrl')}
                       className="text-[11px] font-bold bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
                     >
                       Portal Controls
@@ -1473,13 +1416,6 @@ export default function AdminPortal({
                     </span>
                   </div>
                 </div>
-                <button
-                  onClick={() => openPresentationDeck(0)}
-                  className="px-3.5 py-2 bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 border border-blue-500/40 rounded-xl font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Interactive 10-Slide Overview</span>
-                </button>
               </div>
             </div>
 
@@ -2165,13 +2101,6 @@ export default function AdminPortal({
 
       {/* Floating Quick Action Speed Dial */}
       <QuickActionSpeedDial portalType="admin" onAction={handleQuickAction} />
-
-      {/* App Presentation & Institutional Portals Overview Deck */}
-      <AppPresentationOverviewModal
-        isOpen={showPresentationModal}
-        onClose={() => setShowPresentationModal(false)}
-        initialSlideIndex={presentationInitialSlide}
-      />
     </div>
   );
 }
