@@ -1,4 +1,79 @@
-export type UserRole = 'admin' | 'sub_admin' | 'teacher' | 'accountant' | 'sub_accountant' | 'secretary' | 'student' | 'clerk';
+export type UserRole = 
+  | 'admin' 
+  | 'super_admin' 
+  | 'headmaster' 
+  | 'teacher' 
+  | 'accountant' 
+  | 'sub_accountant' 
+  | 'secretary' 
+  | 'hr' 
+  | 'student' 
+  | 'parent' 
+  | 'clerk' 
+  | 'sub_admin';
+
+export type AppResource = 
+  | 'students'
+  | 'teachers'
+  | 'classes'
+  | 'subjects'
+  | 'academic_years'
+  | 'terms'
+  | 'attendance'
+  | 'reports'
+  | 'fees'
+  | 'payments'
+  | 'receipts'
+  | 'expenses'
+  | 'bank_deposits'
+  | 'payroll'
+  | 'staff_loans'
+  | 'users'
+  | 'audit_logs'
+  | 'settings'
+  | 'calendar';
+
+export type AppPermission = 
+  | 'view_students'
+  | 'edit_students'
+  | 'delete_students'
+  | 'view_teachers'
+  | 'edit_teachers'
+  | 'manage_classes'
+  | 'enter_grades'
+  | 'publish_reports'
+  | 'collect_fees'
+  | 'void_payments'
+  | 'enter_expenses'
+  | 'approve_expenses'
+  | 'run_payroll'
+  | 'view_payroll'
+  | 'manage_bank_deposits'
+  | 'view_audit_logs'
+  | 'manage_users'
+  | 'manage_settings';
+
+export type AppModule = 
+  | 'admin_portal'
+  | 'teacher_portal'
+  | 'accountant_portal'
+  | 'secretary_portal'
+  | 'student_portal'
+  | 'payroll_module'
+  | 'financial_audit'
+  | 'revenue_trends'
+  | 'fee_reminders'
+  | 'academic_setup'
+  | 'settings_module';
+
+export interface CloudSyncStatus {
+  isOnline: boolean;
+  isSyncing: boolean;
+  lastSyncedAt: string | null;
+  pendingWritesCount: number;
+  lastError: string | null;
+  unsyncedDraftsCount: number;
+}
 
 export interface AccountantPrivilegesConfig {
   canCollectFees: boolean;
@@ -190,6 +265,15 @@ export interface StudentBill {
   balance: number;
   status: 'Fully Paid' | 'Partially Paid' | 'Unpaid' | 'Overpaid';
   dueDate?: string;
+  dateIssued?: string;
+  history?: Array<{
+    type: string;
+    amount?: number;
+    date?: string;
+    user?: string;
+    reason?: string;
+    [key: string]: any;
+  }>;
   actionRequired?: boolean;
   actionRequiredReason?: string;
   actionRequiredDate?: string;
@@ -258,12 +342,20 @@ export interface PaymentRecord {
 export interface SecurityAuditLog {
   id: string;
   timestamp: string;
-  performedBy: string;
-  performedByRole: string;
-  targetUser: string;
-  targetUserRole: string;
+  performedBy?: string;
+  performedByRole?: string;
+  targetUser?: string;
+  targetUserRole?: string;
   actionType: 'Role Update' | 'Privilege Modification' | 'Account Deactivation' | 'Password Reset' | 'Access Level Change' | string;
   details: string;
+  userId?: string;
+  userName?: string;
+  userRole?: string;
+  resource?: string;
+  resourceId?: string;
+  severity?: 'INFO' | 'WARNING' | 'CRITICAL' | 'ALERT';
+  ipAddress?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface CalendarEvent {
@@ -286,6 +378,8 @@ export interface NotificationItem {
   recipientGroup?: string;
   targetAudience?: string;
   targetClass?: string;
+  targetRole?: string;
+  targetUserId?: string;
   date?: string;
   dateSent?: string;
   read?: boolean;
@@ -687,6 +781,7 @@ export interface SchoolExpenseRecord {
   vendorPayee: string;
   department?: string;
   recordedBy: string; // e.g. "Accountant (Grace Tetteh)", "Secretary (Abena Osei)"
+  loggedBy?: string;
   recorderRole: 'accountant' | 'sub_accountant' | 'secretary' | 'admin' | string;
   approvedBy?: string;
   status: 'Approved' | 'Pending' | 'Paid' | 'Reconciled' | 'Void';

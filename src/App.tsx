@@ -64,6 +64,7 @@ import JIPASLogo from './components/common/JIPASLogo';
 import LanguageSwitcher from './components/common/LanguageSwitcher';
 import { useI18n } from './i18n/I18nContext';
 import { LogOut, UserCheck, ShieldCheck, Shield, Calculator, BookOpen, UserCog, Database, FileText } from 'lucide-react';
+import { auth } from './lib/firebase';
 import { 
   seedInitialDatabase, 
   subscribeStudents, 
@@ -108,7 +109,8 @@ import {
   getStoredThemePalette,
   applyThemePaletteToDom,
   subscribeThemePalette,
-  saveThemePalette
+  saveThemePalette,
+  recordSecurityAuditLogInFirestore
 } from './services/dbService';
 
 export default function App() {
@@ -124,6 +126,7 @@ export default function App() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(() => {
     return localStorage.getItem('jipas_session_id') || null;
   });
+  const [fbAuthUid, setFbAuthUid] = useState<string | null>(() => auth.currentUser?.uid || null);
   const [dbSynced, setDbSynced] = useState(false);
   
   // App state - local-first persistence guarantees immediate data availability on refresh
@@ -200,15 +203,7 @@ export default function App() {
       setDbSynced(true);
     });
 
-    // 2. Real-time subscriptions to Firestore collections
-    const unsubStudents = subscribeStudents((data) => {
-      setStudents(data);
-    });
-
-    const unsubTeachers = subscribeTeachers((data) => {
-      setTeachers(data);
-    });
-
+    // 2. Real-time subscriptions to public Firestore catalogs & preferences
     const unsubAy = subscribeAcademicYears((data) => {
       setAcademicYears(data);
     });
@@ -237,18 +232,6 @@ export default function App() {
       setSubjects(data);
     });
 
-    const unsubReports = subscribeReports((data) => {
-      setReports(data);
-    });
-
-    const unsubBills = subscribeBills((data) => {
-      setBills(data);
-    });
-
-    const unsubPayments = subscribePayments((data) => {
-      setPayments(data);
-    });
-
     const unsubEvents = subscribeCalendarEvents((data) => {
       setCalendarEvents(data);
     });
@@ -273,6 +256,7 @@ export default function App() {
     });
 
     const unsubAuth = subscribeAuthState(async (fbUser) => {
+      setFbAuthUid(fbUser?.uid || null);
       if (fbUser) {
         const profile = await getUserProfile(fbUser.uid);
         if (profile) {
@@ -288,8 +272,6 @@ export default function App() {
     });
 
     return () => {
-      unsubStudents();
-      unsubTeachers();
       unsubAy();
       unsubTerms();
       unsubDepts();
@@ -297,9 +279,6 @@ export default function App() {
       unsubClasses();
       unsubHouses();
       unsubSubjects();
-      unsubReports();
-      unsubBills();
-      unsubPayments();
       unsubEvents();
       unsubNotifs();
       unsubTariffs();
@@ -308,6 +287,57 @@ export default function App() {
       unsubAuth();
     };
   }, []);
+
+  // Global security audit log sync to Firestore
+  useEffect(() => {
+    const handleAuditLogEvent = async (e: Event) => {
+      const customEvt = e as CustomEvent;
+      if (customEvt.detail && auth.currentUser) {
+        try {
+          await recordSecurityAuditLogInFirestore(customEvt.detail);
+        } catch (err) {
+          console.warn('[App] Security audit log cloud sync notice:', err);
+        }
+      }
+    };
+    window.addEventListener('jipas_audit_log_created', handleAuditLogEvent);
+    return () => {
+      window.removeEventListener('jipas_audit_log_created', handleAuditLogEvent);
+    };
+  }, []);
+
+  // 3. Real-time subscriptions for authenticated user data
+  useEffect(() => {
+    if (!currentUser || !fbAuthUid) return;
+
+    const unsubStudents = subscribeStudents((data) => {
+      setStudents(data);
+    });
+
+    const unsubTeachers = subscribeTeachers((data) => {
+      setTeachers(data);
+    });
+
+    const unsubReports = subscribeReports((data) => {
+      setReports(data);
+    });
+
+    const unsubBills = subscribeBills((data) => {
+      setBills(data);
+    });
+
+    const unsubPayments = subscribePayments((data) => {
+      setPayments(data);
+    });
+
+    return () => {
+      unsubStudents();
+      unsubTeachers();
+      unsubReports();
+      unsubBills();
+      unsubPayments();
+    };
+  }, [currentUser, fbAuthUid]);
 
   // Role & Privilege Intrusion Detection System (IDS)
   useEffect(() => {
