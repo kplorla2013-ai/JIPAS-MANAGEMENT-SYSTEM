@@ -63,9 +63,16 @@ export default function PhotoUploader({
     ? (gender === 'Female' ? PRESET_TEACHER_AVATARS_WOMEN : PRESET_TEACHER_AVATARS_MEN)
     : (gender === 'Female' ? PRESET_STUDENT_AVATARS_GIRLS : PRESET_STUDENT_AVATARS_BOYS);
 
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+  const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+
   const handleFile = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      alert('Please select a valid image file (PNG, JPG, WEBP).');
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      alert('Security Policy: Only JPG, PNG, or WEBP image formats are permitted. Executable, SVG, or unknown file types are rejected.');
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      alert(`File size limit exceeded: Selected file is ${(file.size / (1024 * 1024)).toFixed(1)}MB. Maximum allowed image size is 5MB.`);
       return;
     }
     const reader = new FileReader();

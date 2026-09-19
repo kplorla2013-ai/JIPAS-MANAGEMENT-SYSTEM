@@ -261,13 +261,21 @@ export default function PayrollManager({
   };
 
   const handleDeleteRun = async (runId: string) => {
-    if (window.confirm('Are you sure you want to delete this payroll run? This cannot be undone.')) {
+    const runToDelete = payrollRuns.find(r => r.id === runId);
+    if (!runToDelete) return;
+
+    if ((runToDelete.status === 'Approved' || runToDelete.status === 'Disbursed') && userRole !== 'admin') {
+      alert(`Security Policy: Batch ${runToDelete.batchNumber} has already been ${runToDelete.status.toLowerCase()} and cannot be deleted by non-administrators.`);
+      return;
+    }
+
+    if (window.confirm(`Are you sure you want to delete payroll batch ${runToDelete.batchNumber}? This action is logged.`)) {
       await deletePayrollRun(runId);
       const remaining = payrollRuns.filter(r => r.id !== runId);
       if (remaining.length > 0) {
         setSelectedRunId(remaining[0].id);
       }
-      triggerToast('Payroll run deleted.');
+      triggerToast(`Payroll batch ${runToDelete.batchNumber} deleted successfully.`);
     }
   };
 

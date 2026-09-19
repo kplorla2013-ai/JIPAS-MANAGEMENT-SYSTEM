@@ -112,6 +112,20 @@ A4 Printing Papers,Stationery & Books,85,Primary,Accountant,Secretary,2026-09-16
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const MAX_CSV_SIZE = 5 * 1024 * 1024; // 5 MB
+    if (file.size > MAX_CSV_SIZE) {
+      alert(`File is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Maximum allowed CSV size is 5MB.`);
+      e.target.value = '';
+      return;
+    }
+
+    const name = file.name.toLowerCase();
+    if (!name.endsWith('.csv') && !name.endsWith('.txt')) {
+      alert('Security Policy: Only .csv and .txt plain text files are allowed.');
+      e.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const content = event.target?.result as string;
@@ -121,6 +135,7 @@ A4 Printing Papers,Stationery & Books,85,Primary,Accountant,Secretary,2026-09-16
       }
     };
     reader.readAsText(file);
+    e.target.value = '';
   };
 
   // Confirm Import

@@ -41,8 +41,8 @@ export default function FinancialAuditTrail({ payments, expenses, bills }: Finan
         type: 'Daily Expense',
         amount: e.amount || 0,
         currency: 'CFA',
-        user: e.loggedBy || 'Accountant',
-        description: `${e.category} - ${e.description}`,
+        user: e.loggedBy || e.recordedBy || 'Accountant',
+        description: `${e.category} - ${e.description || e.title || ''}`,
         status: e.status || 'Approved',
         icon: Banknote,
         color: 'text-rose-600',
@@ -57,7 +57,7 @@ export default function FinancialAuditTrail({ payments, expenses, bills }: Finan
            if (h.type === 'Adjustment') {
              events.push({
                id: `adj-${b.id}-${Math.random()}`,
-               date: new Date(h.date || b.dateIssued || new Date()),
+               date: new Date(h.date || b.dateIssued || b.dueDate || new Date()),
                type: 'Balance Adjustment',
                amount: h.amount || 0,
                currency: 'CFA',
